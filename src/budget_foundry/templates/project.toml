@@ -1,0 +1,115 @@
+version = 1
+name = "$name"
+style = "Regular"
+mode = "written"
+font_version = "1.000"
+vendor = "$vendor"
+
+# Where `budget-foundry export` copies the web font, CSS snippet and specimen.
+# export_to = "~/Source/Personal/personal-site/public/fonts/"
+
+[metrics]
+upm = 1000
+cap = 700
+overshoot = 12        # round letters dip below the baseline and above the cap/x-height by this
+ascender = 900        # hhea and typo; win metrics follow the real extremes
+descender = -300
+space = 260
+
+# Heights to normalise each character to, in font units. A string of characters maps
+# to a number, or to { ref = "cap" | "xheight", plus = units, overshoot = n }, where
+# n × metrics.overshoot is added. The x-height is measured from the kept glyphs.
+[targets]
+"ABDEFHIJKLMNPRTVWXYZ" = { ref = "cap" }
+"CGOSU" = { ref = "cap", overshoot = 2 }
+"Q" = 780
+"1247" = { ref = "cap" }
+"03689" = { ref = "cap", overshoot = 2 }
+"5" = { ref = "cap", overshoot = 1 }
+"mnruvwxz" = { ref = "xheight" }
+"aceos" = { ref = "xheight", overshoot = 2 }
+"bdhklf" = 690
+"ti" = 600
+"j" = 850
+"gpqy" = { ref = "xheight", plus = 255 }
+":" = 480
+";" = 640
+"!?" = 780
+"()" = 760
+"[]" = 800
+"{}" = 880
+"<>" = 470
+"«»" = 400
+'/\' = 760
+"|" = 800
+"+" = 470
+"%" = 650
+"*" = 450
+"#" = 700
+"@" = 760
+"&" = 720
+
+[normalise]
+height_variation = 0.5    # keep this power of each glyph's size ratio to its class median
+scale_min = 0.55
+scale_max = 1.7
+weight_share = 0.6        # how much of a glyph's own weight difference survives
+weight_clip = [0.85, 1.15]
+bounce = 0.5              # share of each glyph's natural baseline bounce kept
+bounce_clamp = 25         # units
+dots = { "." = 135, "…" = 140 }   # scaled plainly, no weight compensation
+
+[trace]
+smoothing = 0.06          # Gaussian sigma as a share of stroke width
+turdsize = 4
+alphamax = 1.0
+opttolerance = 0.25
+
+[placement]
+comma_top = 1.1           # × period height
+semicolon_top = 0.97      # × x-height
+quote_above_cap = 10      # units
+math_axis = 0.52          # × x-height; dashes, + = × ÷ < > « » ~ and derived dots centre here
+underscore_top = -70      # units
+slash_bottom = -0.04      # × cap height
+at_bottom = -0.14         # × cap height
+
+# White-area spacing; all values in stroke widths.
+[spacing]
+depth = 1.25
+capitals = 0.95
+lowercase = 0.80
+figures = 0.80
+punctuation = 0.55
+min_sidebearing = 0.12
+dot_sidebearing = 0.35
+
+[kern]
+tighten = 0.6             # close pairs looser than their reference by this share
+loosen = 0.3              # open pairs tighter than their reference by this share
+min_gap = 0.22            # stroke widths of white kept between inks
+max_loosen = 0.3          # stroke widths
+threshold = 30            # drop pairs under this many units
+step = 5
+
+[features]
+space_variants = 3
+
+[segment]
+# Sheets whose lowercase sets the x-height used to hang rows of g p q y alone.
+# xheight_sheets = ["A"]
+
+[score]
+# Suggested keepers per character before culling.
+keep = 3
+keep_frequent = 4
+keep_rare = 2
+
+# One table per source sheet, in reading order. Candidates are numbered by content,
+# not by position, so reordering or re-segmenting never breaks a pick.
+# [sheets.A]
+# source = "sources/IMG_0001.heic"
+# min_stroke = 0      # px; components thinner than this are labels or specks
+# min_area = 400      # px
+# stroke_floor = 0    # px; components at or below this are ignored for the sheet's median stroke
+$sheets

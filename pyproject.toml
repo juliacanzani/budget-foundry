@@ -1,0 +1,27 @@
+[project]
+name = "budget-foundry"
+version = "0.1.0"
+description = "Turn photographed handwriting sheets into a web font with cycling alternates."
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python-headless",
+    "scikit-image",
+    "pillow",
+    "pillow-heif",
+    "potracer",
+    "fonttools",
+    "uharfbuzz",
+    "brotli",
+    "numpy",
+    "typer",
+]
+
+[project.scripts]
+budget-foundry = "budget_foundry.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest"]

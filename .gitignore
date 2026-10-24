@@ -2,3 +2,6 @@
 __pycache__/
 .venv/
 *.egg-info/
+.pytest_cache/
+# Font projects hold source photos; not tracked until we decide what the public repo carries
+projects/

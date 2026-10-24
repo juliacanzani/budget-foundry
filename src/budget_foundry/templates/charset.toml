@@ -1,0 +1,26 @@
+# Characters this font covers. `drawn` are written on the sheets; `derived` are made
+# from another glyph at build time. Coverage is checked against this list.
+drawn = '''0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:;…!?'"“”-–—_()[]{}<>«»/\|+=×÷%*#@&~'''
+
+# Curly singles from one half of a written double quote. Which halves are kept is a
+# decision (decisions.json: "‘": {"keep": ["<candidate>#<component>", ...]}).
+[derived."‘"]
+from = "“"
+method = "component"
+
+[derived."’"]
+from = "”"
+method = "component"
+
+# Middle dot and bullet from the default period, centred on the math axis.
+[derived."·"]
+from = "."
+method = "scale"
+scale = 1.0
+centre = "axis"
+
+[derived."•"]
+from = "."
+method = "scale"
+scale = 1.45
+centre = "axis"
