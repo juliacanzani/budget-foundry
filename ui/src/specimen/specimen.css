@@ -8,7 +8,8 @@ html, body { margin: 0; }
 .specimen__bar h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); }
 .specimen__meta { margin: var(--tui-spacing-xxs) 0 0; color: var(--tui-color-fg-muted); }
 .specimen__main { max-width: 72rem; margin: 0 auto; padding: 0 var(--tui-spacing-lg) var(--tui-spacing-xxl); display: grid; gap: var(--tui-spacing-xl); }
-.specimen__main h2 { margin: 0 0 var(--tui-spacing-sm); font-size: 1.25rem; }
+/* Our section headings, not TUI's own (a Notice title is an h2 too, and unlayered rules beat TUI's) */
+.specimen__main h2:not([class*='tui-'][class*='__']) { margin: 0 0 var(--tui-spacing-sm); font-size: 1.25rem; }
 .specimen__main > * { min-width: 0; }   /* grid items default to their content's width */
 .specimen__hero { width: 100%; box-sizing: border-box; line-height: 1.15; overflow-wrap: break-word; padding: var(--tui-spacing-sm) var(--tui-spacing-md); }
 .specimen__controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tui-spacing-md) var(--tui-spacing-lg); margin-block-start: var(--tui-spacing-md); }
