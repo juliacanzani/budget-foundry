@@ -11,12 +11,13 @@ from budget_foundry.migrate_v0 import migrate
 
 ROOT = Path(__file__).resolve().parents[1]
 V0 = ROOT / 'budget-foundry-v0'
+SAMPLES = ROOT / 'samples' / 'julia-marker'
 REFERENCE = V0 / 'build' / 'JuliaMarker-Regular.woff2'
 
 
 @pytest.fixture(scope='module')
 def project(tmp_path_factory):
-    p = migrate(V0, tmp_path_factory.mktemp('jm') / 'julia-marker', log=lambda *a: None)
+    p = migrate(V0, tmp_path_factory.mktemp('jm') / 'julia-marker', SAMPLES, log=lambda *a: None)
     assert pipeline.run_segment(p, log=lambda *a: None) == []
     pipeline.run_build(p, log=lambda *a: None)
     return p

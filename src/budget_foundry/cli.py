@@ -37,10 +37,11 @@ def version():
 
 
 @app.command('import-v0')
-def import_v0(v0: Annotated[Path, typer.Argument(help='The budget-foundry-v0 folder')], dest: ProjectArg):
+def import_v0(v0: Annotated[Path, typer.Argument(help='The budget-foundry-v0 folder')], dest: ProjectArg,
+              sources: Annotated[Optional[Path], typer.Option(help='Folder with the four sheet photos (default: <v0>/sources)')] = None):
     """Turn the v0 working set (Julia Marker) into a project folder, picks and all."""
     from .migrate_v0 import migrate
-    p = migrate(v0, dest)
+    p = migrate(v0, dest, sources)
     problems = pipeline.run_segment(p)
     if problems: raise typer.Exit(1)
     ids = json.loads((dest / 'v0-ids.json').read_text())

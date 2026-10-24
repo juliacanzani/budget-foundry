@@ -73,13 +73,15 @@ def toml_sheets(sheets: dict) -> str:
     return '\n'.join(out)
 
 
-def migrate(v0: Path, dest: Path, log=print) -> Project:
+def migrate(v0: Path, dest: Path, sources: Path | None = None, log=print) -> Project:
+    """`sources` holds the four sheet photos (default: v0's own sources/ folder)."""
     v0, dest = Path(v0), Path(dest)
+    sources = Path(sources) if sources else v0 / 'sources'
     if (dest / 'project.toml').exists():
         raise FileExistsError(f'{dest} already holds a project')
     (dest / 'sources').mkdir(parents=True, exist_ok=True)
     for k, (src, _) in V0_SHEETS.items():
-        shutil.copy2(v0 / 'sources' / src, dest / 'sources' / src)
+        shutil.copy2(sources / src, dest / 'sources' / src)
     tpl = resources.files('budget_foundry') / 'templates'
     text = Template((tpl / 'project.toml').read_text()).substitute(name='Julia Marker', vendor='TNGB', sheets=toml_sheets(V0_SHEETS))
     # v0 measured the x-height used to hang the q rows on sheet A only

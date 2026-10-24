@@ -10,6 +10,7 @@ Milestone 1 = turn this into the `budget-foundry` CLI with a project folder, sta
 Python 3.12; `pip install opencv-python scikit-image pillow pillow-heif potracer fonttools uharfbuzz brotli numpy`
 
 ## Sheets (sources/)
+The photos now live in `../samples/julia-marker/` with GPS and XMP stripped (pixels unchanged); `sources/` is no longer tracked.
 | Sheet | File | Contents |
 |---|---|---|
 | A | IMG_3524.heic | A–Z, a–z (except i, q, r) |

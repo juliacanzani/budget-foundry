@@ -33,6 +33,12 @@ def load_upright(path) -> Image.Image:
     return ImageOps.exif_transpose(Image.open(path)).convert('RGB')
 
 
+def has_location(path) -> bool:
+    """GPS EXIF in a source photo; worth stripping before a project goes anywhere public."""
+    with Image.open(path) as im:
+        return bool(im.getexif().get_ifd(0x8825))
+
+
 def flatten(gray: np.ndarray, s: dict) -> tuple[np.ndarray, np.ndarray]:
     """Divide out the lighting, then threshold ink against the local background."""
     g = gray.astype(np.float32)
@@ -76,9 +82,11 @@ def run(p: Project, key: str, log=print) -> None:
     sws = np.array([c['sw'] for c in comps])
     H, W = gray.shape
     report = dict(width=W, height=H, components=len(comps),
-                  stroke_px=float(np.median(sws)) if sws.size else 0.0)
+                  stroke_px=float(np.median(sws)) if sws.size else 0.0, location=has_location(p.source_path(key)))
     p.mark_stage(out, stage_fp(p, key), source_sha256=sha256_file(p.source_path(key)), **report)
     log(f'  sheet {key}: {W}×{H}px, {len(comps)} components, median stroke {report["stroke_px"]:.1f}px')
+    if report['location']:
+        log(f'  ! {p.sheet(key)["source"]} has GPS location metadata (strip with: exiftool -gps:all= -xmp:all=)')
 
 
 def load(p: Project, key: str) -> dict:

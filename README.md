@@ -14,11 +14,11 @@ Python 3.12 is fetched by `uv`. Tracing uses potracer (pure Python); native potr
 ## Julia Marker from v0
 
 ```sh
-uv run budget-foundry import-v0 budget-foundry-v0 projects/julia-marker
+uv run budget-foundry import-v0 budget-foundry-v0 projects/julia-marker --sources samples/julia-marker
 uv run budget-foundry build projects/julia-marker
 ```
 
-`import-v0` copies the four HEICs, turns the hand-written `label_*.py` row specs into layout data, and maps every v0 pick (`A0019`) to its content ID through v0's `meta.json` (`v0-ids.json` keeps the mapping). The build reproduces the shipped font: identical outlines, advances, cmap, GSUB and GPOS (`uv run pytest`).
+`import-v0` copies the four HEICs from `samples/julia-marker/` (location metadata stripped, pixels untouched), turns the hand-written `label_*.py` row specs into layout data, and maps every v0 pick (`A0019`) to its content ID through v0's `meta.json` (`v0-ids.json` keeps the mapping). The build reproduces the shipped font: identical outlines, advances, cmap, GSUB and GPOS (`uv run pytest`).
 
 ## Commands
 
