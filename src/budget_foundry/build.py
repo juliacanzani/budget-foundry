@@ -103,6 +103,19 @@ class Builder:
             raise RuntimeError(f'{len(missing)} kept candidates no longer exist (relabelled or re-segmented): {missing[:8]}')
         sheets = {self.cands[i]['sheet'] for ids in [*self.picks.values(), *[[r.split('#')[0] for r in rs] for rs in self.refs.values()]] for i in ids}
         self.labs = {k: imaging.load_labels(p, k) for k in p.sheet_keys if k in sheets}
+        for ch, spec in p.charset.get('derived', {}).items():
+            if spec.get('method') != 'component' or ch in self.refs or spec['from'] not in self.picks: continue
+            n = 0 if spec.get('half', 'left') == 'left' else -1
+            refs = [f'{i}#{n}' for i in self.picks[spec['from']] if self._splits(i)]
+            if not refs:   # no kept one was written in two strokes: try the other candidates
+                others = sorted((c for c in self.cands.values() if c['ch'] == spec['from']), key=lambda c: c.get('score', 0))
+                refs = [f"{c['id']}#{n}" for c in others if self._splits(c['id'])][:1]
+            if refs: self.refs[ch] = refs
+
+    def _splits(self, i):
+        k = self.cands[i]['sheet']
+        if k not in self.labs: self.labs[k] = imaging.load_labels(self.p, k)
+        return len(self.components_sorted(i)) >= 2
 
     # ---- measurement in stroke widths
     def top_sw(self, i): g = self.cands[i]; return (g['base'] - g['y']) / self.SW[g['sheet']]

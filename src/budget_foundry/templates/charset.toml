@@ -2,15 +2,17 @@
 # from another glyph at build time. Coverage is checked against this list.
 drawn = '''0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:;…!?'"“”-–—_()[]{}<>«»/\|+=×÷%*#@&~'''
 
-# Curly singles from one half of a written double quote. Which halves are kept is a
-# decision (decisions.json: "‘": {"keep": ["<candidate>#<component>", ...]}).
+# Curly singles from one stroke of each kept double quote: `half` picks the stroke.
+# A decision overrides it (decisions.json: "‘": {"keep": ["<candidate>#<component>", ...]}).
 [derived."‘"]
 from = "“"
 method = "component"
+half = "left"
 
 [derived."’"]
 from = "”"
 method = "component"
+half = "right"
 
 # Middle dot and bullet from the default period, centred on the math axis.
 [derived."·"]

@@ -11,6 +11,23 @@ uv sync
 
 Python 3.12 is fetched by `uv`. Tracing uses potracer (pure Python); native potrace isn't needed.
 
+## A new font
+
+```sh
+uv run budget-foundry new fonts/my-hand --name "My Hand"     # --paper a4 if you're not on Letter
+uv run budget-foundry template fonts/my-hand                 # template.pdf; add --mono for grey guides
+# print, write each character along its row (up to 8 times), photograph each sheet flat and whole
+uv run budget-foundry add fonts/my-hand ~/Desktop/IMG_*.heic # photos or a scanned PDF
+uv run budget-foundry segment fonts/my-hand                  # every row labels itself from its markers
+uv run budget-foundry cull fonts/my-hand                     # open candidates/cull.html, export picks
+uv run budget-foundry picks fonts/my-hand picks.json         # or --suggested to take the scored picks
+uv run budget-foundry build fonts/my-hand
+```
+
+Templates print fine on a mono printer: guides are removed by where they are, not by their colour. Each sheet carries ArUco markers for its page number and the template revision, so an old printout still imports after the charset changes. Import warns when the cap height is under 120 px in the photo.
+
+Single glyphs from anything (paint, sauce, a marker on a napkin): `add-glyph fonts/my-hand S_sauce.jpg`. The character comes from the file name (`A.jpg`, `a_2.png`, `uni00DF.png`, `question.jpg`) or `--char`; ink is found by colour (`--ink "#be1e19"` to set it), splatter near the letter is kept, and `--rotate` straightens it.
+
 ## Julia Marker from v0
 
 ```sh
@@ -24,11 +41,15 @@ uv run budget-foundry build projects/julia-marker
 
 | Command | Does |
 | --- | --- |
+| `new <dir> --name …` | Start a project |
+| `template <project> [--mono]` | Stage 1: printable template PDF |
+| `add <project> files…` | Register photos or PDF pages as sheets |
+| `add-glyph <project> files…` | Freeform: one glyph per image, ink by colour |
 | `status <project>` | Each stage as not run, stale or done |
 | `import <project>` | Stage 2: flat-field, threshold, components per sheet |
 | `segment <project>` | Stage 3: group and label candidates from the layouts; score them |
 | `cull <project>` | Write `candidates/cull.html`, current keepers preselected |
-| `picks <project> <file.json>` | Merge picks exported from the culling sheet |
+| `picks <project> [file.json] [--suggested]` | Merge picks from the culling sheet; `--suggested` fills characters without picks |
 | `build <project>` | Stages 4–10, then checks. Runs stale upstream stages first |
 | `check <project>` | Automated checks; exit 1 on failure |
 | `render <project> "line" …` | HarfBuzz render to PNG |
@@ -61,4 +82,4 @@ Candidate IDs are a hash of the source file's content and the glyph's bounding b
 
 ## Not in Milestone 1
 
-Template PDF and marker-based import (M2), normalised tiles before culling and the React cull view (M3), sliders and the focus tray (M4), Tauri (M5), composites, ligatures and the asset pack (M6), cursive (M7). PDF sources aren't read yet.
+Harvesting glyphs from the words page and the marks page (M6), the drag-the-corners review screen (M3; flags for now), normalised tiles before culling and the React cull view (M3), sliders and the focus tray (M4), Tauri (M5), composites, ligatures and the asset pack (M6), cursive (M7).

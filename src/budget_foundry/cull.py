@@ -56,3 +56,19 @@ def merge_picks(p: Project, exported: dict, log=print) -> int:
         d['glyphs'][ch] = dict(keep=new, default=default, source='human')
     p.save_decisions(d)
     return changed
+
+
+def accept_suggested(p: Project, log=print) -> int:
+    """Characters without decisions take the suggested keepers (lowest scores first;
+    the best becomes the default), recorded as source "auto"."""
+    d = p.load_decisions(); cands, _ = segment.load(p)
+    by = {}
+    for c in cands.values():
+        if c['suggested']: by.setdefault(c['ch'], []).append(c)
+    n = 0
+    for ch, cs in by.items():
+        if ch in d['glyphs']: continue
+        keep = [c['id'] for c in sorted(cs, key=lambda c: c['score'])]
+        d['glyphs'][ch] = dict(keep=keep, default=keep[0], source='auto'); n += 1
+    p.save_decisions(d)
+    return n

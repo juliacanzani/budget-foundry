@@ -36,6 +36,47 @@ def version():
     typer.echo(__version__)
 
 
+@app.command()
+def new(dest: ProjectArg, name: Annotated[str, typer.Option(help='Font family name')],
+        paper: Annotated[str, typer.Option(help='letter or a4')] = 'letter'):
+    """Start a font project: project.toml, charset.toml, decisions.json, sources/."""
+    from .workspace import new_project
+    p = new_project(dest, name, paper)
+    typer.echo(f'{p.root}\nNext: budget-foundry template {dest}')
+
+
+@app.command()
+def template(project: ProjectArg, mono: Annotated[bool, typer.Option('--mono', help='Light grey guides for mono printers')] = False,
+             out: Annotated[Optional[Path], typer.Option('-o', help='PDF path')] = None):
+    """Stage 1: printable template PDF. Colour and mono prints share one layout."""
+    from . import template as t
+    p = _open(project)
+    out = out or p.root / f"template{'-mono' if mono else ''}.pdf"
+    path, lay = t.write_pdf(p, out, mono)
+    rows = sum(len(s['rows']) for s in lay['sheets'] if s['kind'] == 'chars')
+    typer.echo(f"{path}  ({len(lay['sheets'])} sheets, {rows} characters, rev {lay['rev']}, {lay['paper']})")
+
+
+@app.command()
+def add(project: ProjectArg, files: Annotated[list[Path], typer.Argument(help='Photos (HEIC, JPG, PNG) or PDFs')]):
+    """Copy sheets into sources/ and register them. Template sheets find themselves by their markers."""
+    from .workspace import add_sources
+    for k in add_sources(_open(project), files): typer.echo(f'  + {k}')
+
+
+@app.command('add-glyph')
+def add_glyph(project: ProjectArg, files: Annotated[list[Path], typer.Argument(help='One image per glyph')],
+              char: Annotated[Optional[str], typer.Option(help='The character (default: from the file name)')] = None,
+              ink: Annotated[Optional[str], typer.Option(help='Ink colour as #rrggbb (default: auto)')] = None,
+              tolerance: Annotated[Optional[float], typer.Option(help='Colour distance (ΔE) counted as ink')] = None,
+              rotate: Annotated[Optional[float], typer.Option(help='Degrees to straighten, anticlockwise')] = None,
+              baseline: Annotated[Optional[float], typer.Option(help='Baseline y in px of the cropped image (default: ink bottom)')] = None):
+    """Freeform import: any photo of one glyph, ink found by colour, nearby splatter kept."""
+    from .workspace import add_glyphs
+    for k, ch in add_glyphs(_open(project), files, char, ink=ink, tolerance=tolerance, rotate=rotate, baseline=baseline):
+        typer.echo(f'  + {k}: {ch}')
+
+
 @app.command('import-v0')
 def import_v0(v0: Annotated[Path, typer.Argument(help='The budget-foundry-v0 folder')], dest: ProjectArg,
               sources: Annotated[Optional[Path], typer.Option(help='Folder with the four sheet photos (default: <v0>/sources)')] = None):
@@ -105,11 +146,14 @@ def cull(project: ProjectArg):
 
 
 @app.command()
-def picks(project: ProjectArg, file: Annotated[Path, typer.Argument(help='JSON exported from the culling sheet')]):
+def picks(project: ProjectArg, file: Annotated[Optional[Path], typer.Argument(help='JSON exported from the culling sheet')] = None,
+          suggested: Annotated[bool, typer.Option('--suggested', help='Characters without picks take the suggested keepers')] = False):
     """Merge picks exported from the culling sheet into decisions.json."""
     from . import cull as c
-    changed = c.merge_picks(_open(project), json.loads(file.read_text()))
-    typer.echo(f'{changed} characters changed')
+    p = _open(project)
+    if file: typer.echo(f'{c.merge_picks(p, json.loads(file.read_text()))} characters changed')
+    if suggested: typer.echo(f'{c.accept_suggested(p)} characters took the suggested keepers')
+    if not file and not suggested: typer.echo('Pass a picks file, --suggested, or both.', err=True); raise typer.Exit(2)
 
 
 @app.command()

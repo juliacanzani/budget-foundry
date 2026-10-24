@@ -65,13 +65,13 @@ my-font/
 Ten stages, each with a status (not run, stale, done) that goes stale when anything upstream changes. Stages 5, 7 and 8 loop back through the build preview until the font looks right.
 
 1. **Template.** Generate a printable PDF from the charset.
-   - Guide lines for baseline, x-height, cap height and descender, in a dropout colour (pale cyan by default) that import removes by colour.
-   - One character per row, labelled in the margin in the dropout colour. Rows are long enough for 8 repeats, spaced so letters don't touch.
+   - Guide lines for baseline, x-height, cap height and descender, pale cyan for colour printers or light grey for mono ones. Import removes them by position (once the markers are found it knows where every guide sits) and by lightness, so a colour printer is never required.
+   - One character per row, labelled in the margin in the guide colour. Rows are long enough for 8 repeats, spaced so letters don't touch.
    - Four ArUco markers in the corners plus a sheet code, so import knows the sheet, its row order and its scale.
    - A words page ("nanbncn" sequences, **Hamburgevons**, a pangram, the user's own phrases) for spacing reference and in-context harvesting. Seeded with words containing common pairs (little, better, coffee, the other) so ligature candidates turn up naturally. An optional ligature page takes pairs written on purpose.
    - A marks page for accents: acute, grave, circumflex, diaeresis, cedilla, tilde, ring, plus œ, æ, ß.
 2. **Import.** Drag in HEIC, JPG, PNG or PDF.
-   - Detect markers, correct perspective, flat-field the lighting, drop the guide colour, threshold.
+   - Detect markers, correct perspective, flat-field the lighting, remove the guides by position, threshold. Works the same on colour and grayscale prints.
    - Report per sheet: pixels per stroke width, cap height in pixels, and a warning below 120 px cap height.
    - Sheets without markers (like ours) fall back to the manual path: row detection plus typing the label string per row.
 3. **Segment and label.** Connected components, merged by row and by vertical overlap (i, j, !, ?, :, ;, ÷).
@@ -260,3 +260,4 @@ Each milestone is usable on its own; the gate is what has to be true before star
 - Words-page glyphs are candidates by default; touching pairs become ligature candidates.
 - Ligatures from both sources, each optional: pairs harvested from the seeded words page, and pairs from an optional ligature page.
 - The app is style-agnostic: written, cursive and drawn modes, chosen per project (see Project modes).
+- Templates work printed in grayscale: guides are removed by position, not colour.

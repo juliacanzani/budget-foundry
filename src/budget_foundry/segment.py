@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 from skimage.morphology import skeletonize
 
-from . import imaging
+from . import imaging, template
 import sys
 
 from .project import Project, candidate_id, code_fp, fingerprint
@@ -99,12 +99,58 @@ def label_region(key, comps, s, region, problems):
     return res
 
 
+# ---- template sheets
+
+# Characters written as strokes side by side, which overlap-merging can't join.
+# (Vertical stacks like i j ! ? : ; = ÷ already merge by overlap.)
+MULTIPART = set('"“”„«»…%‰')
+
+
+def merge_parts(groups, ch):
+    """Join the strokes of one written glyph: split the row's gaps into small (inside a
+    glyph) and large (between repeats) at the widest jump between sorted gaps, but only
+    when they really are two kinds (small under half of large); strokes that already
+    touched leave nothing to merge."""
+    if ch not in MULTIPART or len(groups) < 2: return groups
+    gaps = [b['x'] - (a['x'] + a['w']) for a, b in zip(groups, groups[1:])]
+    srt = sorted(gaps)
+    jumps = [(srt[i + 1] - srt[i], i) for i in range(len(srt) - 1)]
+    if not jumps: return groups
+    j, i = max(jumps)
+    if srt[i] >= 0.5 * srt[i + 1]: return groups
+    cut = (srt[i] + srt[i + 1]) / 2
+    out = [dict(groups[0], ids=list(groups[0]['ids']))]
+    for g, gap in zip(groups[1:], gaps):
+        if gap < cut:
+            o = out[-1]; nx, ny = min(o['x'], g['x']), min(o['y'], g['y'])
+            o['w'] = max(o['x'] + o['w'], g['x'] + g['w']) - nx; o['h'] = max(o['y'] + o['h'], g['y'] + g['h']) - ny
+            o['x'], o['y'] = nx, ny; o['ids'] += g['ids']
+        else:
+            out.append(dict(g, ids=list(g['ids'])))
+    return out
+
+
+def label_template(key, comps, sheet_sw, lay, n, ppm):
+    """Every glyph in a row is a candidate for that row's character; the baseline is the
+    printed guide, not a fitted line."""
+    sh = lay['sheets'][n]; res = []
+    min_area = 0.25 * sheet_sw ** 2                     # a pen dot is ~0.8 sw²; specks are smaller
+    s = dict(min_stroke=0, min_area=min_area)
+    for r in sh['rows']:
+        bands = [r['top'] * ppm, r['bottom'] * ppm]
+        (groups,) = row_groups(comps, s, bands, (r['x0'] * ppm, r['x1'] * ppm))
+        for g in merge_parts(groups, r['char']):
+            res.append(dict(g, ch=r['char'], sheet=key, row=f"{key}t{r['base']:.1f}", base=r['base'] * ppm))
+    return res
+
+
 # ---- baselines
 
 def fit_baselines(allg, sheet_sw, xh_sw):
     rows = {}
     for g in allg: rows.setdefault(g['row'], []).append(g)
     for gs in rows.values():
+        if all('base' in g for g in gs): continue      # template rows: the printed baseline
         if all(g['ch'] in XTOP_DESCENDERS for g in gs):
             # nothing sits on the baseline: hang it one x-height below the tops
             b = float(np.median([g['y'] for g in gs])) + xh_sw * sheet_sw[gs[0]['sheet']]
@@ -188,13 +234,28 @@ def run(p: Project, log=print) -> list[str]:
     d = p.load_decisions(); problems = []
     sheets = {k: imaging.load(p, k) for k in p.sheet_keys}
     srcsha = {k: sheets[k]['record']['source_sha256'] for k in p.sheet_keys}
+    sheet_sw = {k: float(np.median([c['sw'] for c in sheets[k]['comps'] if c['sw'] > sheet_settings(p, k)['stroke_floor']]))
+                if sheets[k]['comps'] else 0.0 for k in p.sheet_keys}
+    lays = {lay['rev']: lay for lay in template.revisions(p)}
+    ppm = imaging.settings(p)['px_per_mm']
     allg = []
     for k in p.sheet_keys:
-        s = sheet_settings(p, k)
-        for region in d['layout'].get(k, []):
-            allg += label_region(k, sheets[k]['comps'], s, region, problems)
-    sheet_sw = {k: float(np.median([c['sw'] for c in sheets[k]['comps'] if c['sw'] > sheet_settings(p, k)['stroke_floor']]))
-                for k in p.sheet_keys}
+        t = (sheets[k]['record'] or {}).get('template')
+        if p.sheet(k).get('kind') == 'freeform':
+            cs = sheets[k]['comps']
+            if not cs: problems.append(f'sheet {k}: no ink found'); continue
+            x0 = min(c['x'] for c in cs); y0 = min(c['y'] for c in cs)
+            x1 = max(c['x'] + c['w'] for c in cs); y1 = max(c['y'] + c['h'] for c in cs)
+            allg.append(dict(x=x0, y=y0, w=x1 - x0, h=y1 - y0, ids=[c['id'] for c in cs], ch=p.sheet(k)['char'],
+                             sheet=k, row=f'{k}free', base=float(p.sheet(k).get('baseline', y1))))
+        elif t and t['kind'] == 'chars':
+            allg += label_template(k, sheets[k]['comps'], sheet_sw[k], lays[t['rev']], t['sheet'], ppm)
+        elif t:
+            log(f'  sheet {k}: {t["kind"]} page, kept for reference (harvesting comes with ligatures)')
+        else:
+            s = sheet_settings(p, k)
+            for region in d['layout'].get(k, []):
+                allg += label_region(k, sheets[k]['comps'], s, region, problems)
     xh_sheets = p.config.get('segment', {}).get('xheight_sheets', p.sheet_keys)
     xh = [g['h'] / sheet_sw[g['sheet']] for g in allg if g['sheet'] in xh_sheets and g['ch'] in XHEIGHT_CHARS]
     xh_sw = float(np.median(xh)) if xh else float('nan')   # only rows of g p q y alone need it
