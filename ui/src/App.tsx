@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Notice, SegmentedControl } from '@tangible/ui';
-import type { Mode } from './main';
+import { Button, Notice } from '@tangible/ui';
+import { systemTheme, type Mode } from './main';
+import { ThemeButton, themeLabel } from './ThemeButton';
 import { api, type BuildResult as Result } from './api';
 import { BuildResult } from './BuildResult';
 import { CullView } from './CullView';
@@ -10,7 +11,7 @@ import { LookAlikes } from './LookAlikes';
 import { Preview } from './Preview';
 import { StageRail } from './StageRail';
 
-export function App({ mode, onModeChange }: { mode: Mode; onModeChange: (m: Mode) => void }) {
+export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'light' | 'dark'; onModeChange: (m: Mode) => void }) {
   const qc = useQueryClient();
   const project = useQuery({ queryKey: ['project'], queryFn: api.project });
   const glyphs = useQuery({ queryKey: ['glyphs'], queryFn: api.glyphs });
@@ -65,11 +66,11 @@ export function App({ mode, onModeChange }: { mode: Mode; onModeChange: (m: Mode
     <div className="app">
       <header className="app__bar">
         <p className="app__name"><span className="app__product">Budget Foundry</span> {project.data.name}</p>
-        <SegmentedControl aria-label="Colour mode" size="sm" variant="outline" value={mode} onValueChange={(v) => onModeChange(v as Mode)}>
-          <SegmentedControl.Item value="system">System</SegmentedControl.Item>
-          <SegmentedControl.Item value="light">Light</SegmentedControl.Item>
-          <SegmentedControl.Item value="dark">Dark</SegmentedControl.Item>
-        </SegmentedControl>
+        <ThemeButton mode={mode} resolved={resolved} onChange={(m) => {
+          onModeChange(m);
+          const r = m === 'system' ? systemTheme() : m;
+          setMessage(themeLabel(m, r).replace('. Click to change', ''));
+        }} />
         <Button size="sm" theme="primary" label="Build font" loading={building} loadingLabel="Building" onClick={build} />
       </header>
       <StageRail stages={project.data.stages} toChoose={project.data.characters - project.data.decided} />

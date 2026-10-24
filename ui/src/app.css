@@ -161,3 +161,6 @@ html, body { margin: 0; }
   --tui-button-border-interact: var(--purple-100);
   --tui-button-fg-interact: var(--purple-900);
 }
+
+.theme-button { display: inline-flex; }
+.theme-tooltip { max-width: none; white-space: nowrap; }   /* one line: it names the mode */

@@ -11,6 +11,8 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { refetchOnWind
 export type Mode = 'system' | 'light' | 'dark';
 const MODE_KEY = 'budget-foundry:mode';
 
+export const systemTheme = (): 'light' | 'dark' => (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
 function readMode(): Mode {
   try { const m = localStorage.getItem(MODE_KEY); if (m === 'light' || m === 'dark') return m; } catch { /* private mode */ }
   return 'system';
@@ -30,7 +32,7 @@ function useTheme() {
     setModeState(m);
     try { if (m === 'system') localStorage.removeItem(MODE_KEY); else localStorage.setItem(MODE_KEY, m); } catch { /* not saved */ }
   };
-  const theme = mode === 'system' ? (system ? 'dark' : 'light') : mode;
+  const theme: 'light' | 'dark' = mode === 'system' ? (system ? 'dark' : 'light') : mode;
   return { theme, mode, setMode };
 }
 
@@ -40,7 +42,7 @@ function Root() {
   return (
     <div className="tui-interface tui-font-sans app-root" data-theme={theme}>
       <QueryClientProvider client={queryClient}>
-        <App mode={mode} onModeChange={setMode} />
+        <App mode={mode} resolved={theme} onModeChange={setMode} />
       </QueryClientProvider>
     </div>
   );
