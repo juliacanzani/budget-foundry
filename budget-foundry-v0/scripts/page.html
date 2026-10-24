@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Handwriting font — glyph culling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f5f5f1; --sheet:#ffffff; --ink:#1d1d1b; --muted:#6b6b66; --rule:#d9d9d3;
+  --keep:#f3e24a; --keep-edge:#c9b52a; --pencil:#b3261e; --guide:#a9c4e0;
+  --glyph-filter:none;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#1b1c1a; --sheet:#242522; --ink:#ecece6; --muted:#a3a39b; --rule:#3a3b37;
+    --keep:#5b5420; --keep-edge:#9a8d2c; --pencil:#ff8a7f; --guide:#3f5f80;
+    --glyph-filter:invert(1); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1b1c1a; --sheet:#242522; --ink:#ecece6; --muted:#a3a39b; --rule:#3a3b37;
+  --keep:#5b5420; --keep-edge:#9a8d2c; --pencil:#ff8a7f; --guide:#3f5f80;
+  --glyph-filter:invert(1); color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 120px)}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar{max-width:1200px;margin:0 auto;padding:14px 20px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center}
+h1{font-size:1.15rem;margin:0;font-weight:700}
+.tally{color:var(--muted);font-variant-numeric:tabular-nums}
+.tally strong{color:var(--ink)}
+.spacer{flex:1}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-right:1px solid var(--rule);background:transparent;color:var(--ink);font:inherit;padding:6px 12px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.btn{font:inherit;padding:6px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+button:focus-visible{outline:3px solid var(--guide);outline-offset:2px}
+main{max-width:1200px;margin:0 auto;padding:20px 20px 80px}
+.intro{max-width:68ch;color:var(--muted);margin:0 0 24px}
+.intro b{color:var(--ink);font-weight:700}
+section.char{display:grid;grid-template-columns:88px 1fr;gap:16px;padding:18px 0;border-top:1px solid var(--rule)}
+.label{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.label .big{font-size:2.6rem;line-height:1;font-weight:700}
+.label .count{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.label .count.none{color:var(--pencil);font-weight:700}
+.tiles{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.tile{position:relative;border:1px solid var(--rule);background:var(--sheet);border-radius:6px;padding:4px 6px 4px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;min-width:52px;font:inherit;color:var(--ink)}
+.tile .frame{position:relative;height:100px;display:flex;justify-content:center}
+.tile .frame::after{content:"";position:absolute;left:-6px;right:-6px;top:68%;border-top:1px dashed var(--guide)}
+.tile img{height:100px;width:auto;display:block;filter:var(--glyph-filter);position:relative;z-index:1}
+.tile[aria-pressed="true"]{background:var(--keep);border-color:var(--keep-edge)}
+.flags{font-size:.72rem;line-height:1.2;color:var(--pencil);text-align:center;max-width:110px;min-height:.9rem}
+.tile:hover{border-color:var(--muted)}
+dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);max-width:min(720px,92vw);width:100%;padding:20px}
+dialog::backdrop{background:rgb(0 0 0 / .4)}
+dialog h2{margin:0 0 8px;font-size:1.1rem}
+dialog p{margin:0 0 12px;color:var(--muted)}
+textarea{width:100%;height:240px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:10px}
+.row{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;align-items:center}
+.status{color:var(--muted);margin-right:auto}
+@media (max-width:600px){section.char{grid-template-columns:1fr}.label{flex-direction:row;align-items:baseline;gap:10px}.tile .frame,.tile img{height:76px}}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <h1>Glyph culling</h1>
+  <span class="tally" id="tally"></span>
+  <span class="spacer"></span>
+  <div class="seg" role="group" aria-label="Show">
+    <button data-f="all" aria-pressed="true">All</button>
+    <button data-f="letters" aria-pressed="false">Letters</button>
+    <button data-f="figures" aria-pressed="false">Figures</button>
+    <button data-f="punct" aria-pressed="false">Punctuation</button>
+  </div>
+  <button class="btn" id="reset">Reset to suggestions</button>
+  <button class="btn primary" id="export">Export picks</button>
+</div></header>
+<main>
+<p class="intro">Each tile is one candidate, shown at a common scale and sitting on its own row’s baseline (dashed), so you see real size and bounce. <b>Highlighted tiles are kept.</b> The lowest-scoring three per character (four for e a o n s t i, two for rare punctuation) are pre-selected; click to change. Red notes compare a candidate with the others for the same character: size, weight once scaled to match, slant, and whether it drops or floats off the line. Your picks are saved in this browser as you go.</p>
+<div id="list"></div>
+</main>
+<dialog id="dlg" aria-labelledby="dlgt">
+  <h2 id="dlgt">Export picks</h2>
+  <p>Copy this and paste it back into the chat.</p>
+  <textarea id="out" readonly></textarea>
+  <div class="row"><span class="status" id="status" role="status"></span>
+    <button class="btn" id="close">Close</button><button class="btn primary" id="copy">Copy</button></div>
+</dialog>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const DATA=JSON.parse(document.getElementById('data').textContent);
+const KEY='glyph-cull-v1';
+const suggested=()=>{const s={};DATA.forEach(c=>c.cands.forEach(g=>{if(g.pick)s[g.id]=1}));return s};
+let picks;
+try{picks=JSON.parse(localStorage.getItem(KEY))||suggested()}catch(e){picks=suggested()}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(picks))}catch(e){}};
+const kind=ch=>/[A-Za-z]/.test(ch)?'letters':/[0-9]/.test(ch)?'figures':'punct';
+const list=document.getElementById('list');
+const sections=[];
+DATA.forEach(c=>{
+  const sec=document.createElement('section');sec.className='char';sec.dataset.kind=kind(c.ch);
+  sec.setAttribute('aria-label','Character '+c.ch);
+  const lab=document.createElement('div');lab.className='label';
+  const big=document.createElement('span');big.className='big';big.textContent=c.ch;
+  const cnt=document.createElement('span');cnt.className='count';
+  lab.append(big,cnt);
+  const tiles=document.createElement('div');tiles.className='tiles';
+  c.cands.forEach((g,i)=>{
+    const b=document.createElement('button');b.className='tile';b.type='button';b.title=g.id;
+    const fr=document.createElement('span');fr.className='frame';
+    const im=document.createElement('img');im.alt='';im.src='data:image/png;base64,'+g.img;im.loading='lazy';
+    fr.append(im);
+    const fl=document.createElement('span');fl.className='flags';fl.textContent=g.flags.join(', ');
+    b.append(fr,fl);
+    const sync=()=>{const on=!!picks[g.id];b.setAttribute('aria-pressed',on);
+      b.setAttribute('aria-label',`${c.ch} candidate ${i+1}${g.flags.length?', '+g.flags.join(', '):''}`)};
+    b.addEventListener('click',()=>{if(picks[g.id])delete picks[g.id];else picks[g.id]=1;save();sync();update()});
+    b.addEventListener('sync',sync);sync();tiles.append(b);
+  });
+  sec.append(lab,tiles);list.append(sec);sections.push({sec,cnt,c});
+});
+function update(){
+  let kept=0,covered=0;
+  sections.forEach(({cnt,c})=>{const n=c.cands.filter(g=>picks[g.id]).length;kept+=n;if(n)covered++;
+    cnt.textContent=n?`${n} of ${c.cands.length} kept`:`none kept`;cnt.classList.toggle('none',!n)});
+  document.getElementById('tally').innerHTML=`<strong>${kept}</strong> kept, <strong>${covered}</strong> of ${DATA.length} characters covered`;
+}
+update();
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  sections.forEach(({sec})=>sec.hidden=!(b.dataset.f==='all'||sec.dataset.kind===b.dataset.f));
+}));
+const rb=document.getElementById('reset');let armed=null;
+rb.addEventListener('click',()=>{
+  if(!armed){rb.textContent='Click again to replace your picks';armed=setTimeout(()=>{armed=null;rb.textContent='Reset to suggestions'},3000);return}
+  clearTimeout(armed);armed=null;rb.textContent='Reset to suggestions';
+  picks=suggested();save();
+  document.querySelectorAll('.tile').forEach(t=>t.dispatchEvent(new Event('sync')));update();
+});
+const dlg=document.getElementById('dlg'),out=document.getElementById('out'),status=document.getElementById('status');
+document.getElementById('export').addEventListener('click',()=>{
+  const o={};DATA.forEach(c=>{const ids=c.cands.filter(g=>picks[g.id]).map(g=>g.id);if(ids.length)o[c.ch]=ids});
+  out.value=JSON.stringify(o);status.textContent='';dlg.showModal();out.select();
+});
+document.getElementById('close').addEventListener('click',()=>dlg.close());
+document.getElementById('copy').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(out.value);status.textContent='Copied.'}
+  catch(e){out.select();try{document.execCommand('copy');status.textContent='Copied.'}catch(_){status.textContent='Select the text and copy it manually.'}}
+});
+</script>
+</body>
+</html>
