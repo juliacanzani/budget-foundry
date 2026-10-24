@@ -77,6 +77,19 @@ def add_glyph(project: ProjectArg, files: Annotated[list[Path], typer.Argument(h
         typer.echo(f'  + {k}: {ch}')
 
 
+@app.command()
+def serve(project: ProjectArg, port: int = 8765, open_browser: Annotated[bool, typer.Option('--open/--no-open')] = True):
+    """Open the app: the cull view and preview in your browser, against this project."""
+    import threading, webbrowser
+    import uvicorn
+    from .server import create_app
+    app_ = create_app(_open(project).root)
+    url = f'http://127.0.0.1:{port}/'
+    if open_browser: threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    typer.echo(f'Budget Foundry on {url}  (Ctrl+C to stop)')
+    uvicorn.run(app_, host='127.0.0.1', port=port, log_level='warning')
+
+
 @app.command('import-v0')
 def import_v0(v0: Annotated[Path, typer.Argument(help='The budget-foundry-v0 folder')], dest: ProjectArg,
               sources: Annotated[Optional[Path], typer.Option(help='Folder with the four sheet photos (default: <v0>/sources)')] = None):

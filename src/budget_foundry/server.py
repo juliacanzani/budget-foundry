@@ -228,9 +228,15 @@ def create_app(root: Path, log=print) -> FastAPI:
                 st.subscribers.remove(q)
         return StreamingResponse(stream(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache'})
 
-    web = resources.files('budget_foundry') / 'web'
-    if (Path(str(web)) / 'index.html').exists():
+    web = Path(str(resources.files('budget_foundry') / 'web'))
+    if (web / 'index.html').exists():
         app.mount('/', StaticFiles(directory=str(web), html=True), name='web')
+    else:
+        @app.get('/')
+        def no_ui():
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse('The UI is not built yet: run `pnpm install && pnpm build` in ui/, then reload. '
+                                     'The API is up at /api/docs.', status_code=503)
     app.state.bf = st
     return app
 

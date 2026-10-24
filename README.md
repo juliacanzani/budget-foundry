@@ -11,6 +11,19 @@ uv sync
 
 Python 3.12 is fetched by `uv`. Tracing uses potracer (pure Python); native potrace isn't needed.
 
+## The app
+
+`budget-foundry serve <project>` opens the cull view at http://127.0.0.1:8765: every candidate normalised and drawn on the font's guides, the look-alike pairs (Y 4, a 2, S 6, l I 1…) by current default, and a preview line set by HarfBuzz from your picks, alternates off and on. Keyboard first: arrows move, Space keeps, S stars the default, J/K jump characters. Characters you haven't touched show their suggested keepers dashed; the first keystroke on one starts from them. Build font runs the build and lists the checks.
+
+The UI is React with [Tangible UI](https://www.npmjs.com/package/@tangible/ui), built into the Python package:
+
+```sh
+cd ui && pnpm install && pnpm build     # once, and after UI changes
+pnpm dev                                # or: hot reload on :5173 against `serve` on :8765
+```
+
+The old static culling sheet is still there for the CLI: `cull` writes `candidates/cull.html`, `picks` merges its export (or `--suggested` takes the scored picks).
+
 ## A new font
 
 ```sh
@@ -19,9 +32,8 @@ uv run budget-foundry template fonts/my-hand                 # template.pdf; add
 # print, write each character along its row (up to 8 times), photograph each sheet flat and whole
 uv run budget-foundry add fonts/my-hand ~/Desktop/IMG_*.heic # photos or a scanned PDF
 uv run budget-foundry segment fonts/my-hand                  # every row labels itself from its markers
-uv run budget-foundry cull fonts/my-hand                     # open candidates/cull.html, export picks
-uv run budget-foundry picks fonts/my-hand picks.json         # or --suggested to take the scored picks
-uv run budget-foundry build fonts/my-hand
+uv run budget-foundry serve fonts/my-hand                    # cull and choose defaults in the browser, then Build
+
 ```
 
 Templates print fine on a mono printer: guides are removed by where they are, not by their colour. Each sheet carries ArUco markers for its page number and the template revision, so an old printout still imports after the charset changes. Import warns when the cap height is under 120 px in the photo.
@@ -48,6 +60,7 @@ uv run budget-foundry build projects/julia-marker
 | `status <project>` | Each stage as not run, stale or done |
 | `import <project>` | Stage 2: flat-field, threshold, components per sheet |
 | `segment <project>` | Stage 3: group and label candidates from the layouts; score them |
+| `serve <project>` | The app: cull view, preview, build |
 | `cull <project>` | Write `candidates/cull.html`, current keepers preselected |
 | `picks <project> [file.json] [--suggested]` | Merge picks from the culling sheet; `--suggested` fills characters without picks |
 | `build <project>` | Stages 4–10, then checks. Runs stale upstream stages first |
@@ -82,4 +95,4 @@ Candidate IDs are a hash of the source file's content and the glyph's bounding b
 
 ## Not yet
 
-Harvesting glyphs from the words page and the marks page (M6), the drag-the-corners review screen (M3; flags for now), normalised tiles before culling and the React cull view (M3), sliders and the focus tray (M4), Tauri (M5), composites, ligatures and the asset pack (M6), cursive (M7).
+Harvesting glyphs from the words page and the marks page (M6), the drag-the-corners review screen and screens for the other stages (flags and CLI for now), sliders and the focus tray (M4), Tauri (M5), composites, ligatures and the asset pack (M6), cursive (M7).

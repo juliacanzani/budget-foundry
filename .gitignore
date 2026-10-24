@@ -7,3 +7,5 @@ __pycache__/
 projects/
 # Original photos with location metadata; the stripped copies live in samples/
 budget-foundry-v0/sources/
+src/budget_foundry/web/
+ui/node_modules/
