@@ -1,0 +1,6 @@
+// Only the TUI components the specimen draws: the exported page carries this sheet.
+// Tokens, resets, utilities and icon styles always emit. Add a key here when the
+// specimen starts using another component.
+@use "@tangible/ui/styles/index" with (
+  $components: (button, card, field, icon-button, notice, slider, switch, textarea, tooltip)
+);

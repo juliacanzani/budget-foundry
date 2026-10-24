@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@tangible/ui/styles';
+import './tui.scss';
 import '../theme.css';
 import './specimen.css';
 import { Specimen, type SpecimenData } from './Specimen';
