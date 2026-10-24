@@ -18,7 +18,7 @@ uv run budget-foundry import-v0 budget-foundry-v0 projects/julia-marker --source
 uv run budget-foundry build projects/julia-marker
 ```
 
-`import-v0` copies the four HEICs from `samples/julia-marker/` (location metadata stripped, pixels untouched), turns the hand-written `label_*.py` row specs into layout data, and maps every v0 pick (`A0019`) to its content ID through v0's `meta.json` (`v0-ids.json` keeps the mapping). The build reproduces the shipped font: identical outlines, advances, cmap, GSUB and GPOS (`uv run pytest`).
+`import-v0` copies the four HEICs from `samples/julia-marker/` (location metadata stripped, pixels untouched), turns the hand-written `label_*.py` row specs into layout data, and maps every v0 pick (`A0019`) to its content ID through v0's `meta.json` (`v0-ids.json` keeps the mapping). The build reproduces the shipped font's outlines, advances, cmap and kerning exactly (`uv run pytest`). GSUB differs on purpose: the shipped `calt` cycle never showed the default i, o or t (the only characters with four variants), so those now look back two glyphs (`features.wide_slot`).
 
 ## Commands
 

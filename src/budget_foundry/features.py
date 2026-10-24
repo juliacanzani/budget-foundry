@@ -1,9 +1,15 @@
 """Stage 9, features: generated, never hand-written.
 
 `calt` cycles variants with the previous glyph's slot as state. Characters are split
-across two directions (forward 0→1→2→3, reverse 0→2→1→3) by crc32 parity, so
-neighbouring letters don't step in lockstep; spaces carry the state; a glyph never
-follows itself. `ss01`–`ss03` force a variant.
+across two directions (forward 0→1→2, reverse 0→2→1) by crc32 parity, so neighbouring
+letters don't step in lockstep; spaces carry the state; a glyph never follows itself.
+`ss01`–`ss03` force a variant.
+
+Nearly every glyph sits in slot 0, 1 or 2, so one glyph of lookback gives three states:
+enough for three variants, never for four (the fourth-variant characters' defaults
+never showed). Characters with four variants look back two glyphs instead (see
+wide_slot); the result is never the previous slot, so doubles still never repeat.
+On English prose each of the four slots lands at roughly 20-30%.
 
 No `rand`: HarfBuzz applies it by default and it overrides the cycle.
 """
@@ -16,6 +22,15 @@ def gname(ch: str, slot: int) -> str:
     """Production names only: uniXXXX, uniXXXX.altN."""
     b = 'uni%04X' % ord(ch)
     return b if slot == 0 else f'{b}.alt{slot}'
+
+
+def wide_slot(q: int, p: int) -> int:
+    """Slot for a four-variant glyph after slots q, p. Running text almost only
+    produces q != p within 0-2: stepping one way takes the fourth slot, otherwise the
+    slot neither neighbour used. Anything else steps on from p."""
+    if q != p and q < 3 and p < 3:
+        return 3 if p == (q + 1) % 3 else 3 - p - q
+    return (p + 1) % 4
 
 
 def generate(nvar: dict[str, int], space_variants: int = 3) -> str:
@@ -34,13 +49,22 @@ def generate(nvar: dict[str, int], space_variants: int = 3) -> str:
     def L(cs, n=None, only=None):
         l = [nm(c, 0) for c in cs if (n is None or nv[c] >= n) and (only is None or nv[c] == only)]
         return '[' + ' '.join(l) + ']' if l else None
+    if any(nv[c] > 4 for c in chars): raise ValueError('at most four variants per character')
     rules = []
-    def r(prev, targ, lookup):
-        if targ: rules.append(f"  sub @{prev} {targ}' lookup {lookup};")
-    # forward: 0->1->2->(3)->0
-    r('S0', L(A), 'to1'); r('S1', L(A, 3), 'to2'); r('S2', L(A, 4), 'to3')
-    # reverse: 0->2->1->(3)->0 ; two-variant chars just alternate
-    r('S0', L(B, 3), 'to2'); r('S0', L(B, only=2), 'to1'); r('S2', L(B, 3), 'to1'); r('S1', L(B, 4), 'to3')
+    def r(prev, cs, out):
+        targ = L(cs)
+        if targ and out: rules.append(f"  sub {prev} {targ}' lookup to{out};")
+        elif targ: rules.append(f"  ignore sub {prev} {targ}';")
+    by = lambda grp, n: [c for c in grp if nv[c] == n]
+    # four variants: two glyphs of lookback; with only one glyph before, one
+    wide = by(A, 4) + by(B, 4)
+    for q in range(4):
+        for p in range(4): r(f'@S{q} @S{p}', wide, wide_slot(q, p))
+    for p in range(4): r(f'@S{p}', wide, (p + 1) % 4)
+    # forward: 0->1->2->0
+    r('@S0', by(A, 3) + by(A, 2), 1); r('@S1', by(A, 3), 2)
+    # reverse: 0->2->1->0 ; two-variant chars just alternate
+    r('@S0', by(B, 3), 2); r('@S0', by(B, 2), 1); r('@S2', by(B, 3), 1)
     fea.append("lookup cycle {\n" + "\n".join(rules) + "\n} cycle;")
     fea.append("feature calt {\n  lookup cycle;\n} calt;")
     for s in (1, 2, 3):

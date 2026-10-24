@@ -34,3 +34,15 @@ def test_features_have_no_rand_and_cycle_spaces():
 def test_production_glyph_names():
     assert features.gname('t', 0) == 'uni0074'
     assert features.gname('.', 2) == 'uni002E.alt2'
+
+
+def test_wide_slot_never_repeats_the_previous_slot():
+    for q in range(4):
+        for p in range(4):
+            assert features.wide_slot(q, p) != p
+            assert 0 <= features.wide_slot(q, p) < 4
+
+
+def test_wide_slot_uses_all_four_slots_in_common_contexts():
+    common = [(q, p) for q in range(3) for p in range(3) if q != p]
+    assert {features.wide_slot(q, p) for q, p in common} == {0, 1, 2, 3}

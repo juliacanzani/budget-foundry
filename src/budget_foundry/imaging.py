@@ -6,6 +6,7 @@ is the photo itself, upright.
 from __future__ import annotations
 
 import json
+import sys
 
 import cv2
 import numpy as np
@@ -13,7 +14,7 @@ from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 from skimage.morphology import skeletonize
 
-from .project import Project, fingerprint, sha256_file
+from .project import Project, code_fp, fingerprint, sha256_file
 
 register_heif_opener()
 
@@ -26,7 +27,7 @@ def settings(p: Project) -> dict:
 
 
 def stage_fp(p: Project, key: str) -> str:
-    return fingerprint('import', sha256_file(p.source_path(key)), settings(p))
+    return fingerprint('import', code_fp(sys.modules[__name__]), sha256_file(p.source_path(key)), settings(p))
 
 
 def load_upright(path) -> Image.Image:

@@ -16,7 +16,9 @@ import numpy as np
 from skimage.morphology import skeletonize
 
 from . import imaging
-from .project import Project, candidate_id, fingerprint
+import sys
+
+from .project import Project, candidate_id, code_fp, fingerprint
 
 SEG_DEFAULTS = dict(min_stroke=0, min_area=400, stroke_floor=0)
 # Glyphs whose bottoms don't sit on the baseline; excluded from the row baseline fit.
@@ -39,7 +41,7 @@ def score_settings(p: Project) -> dict:
 
 def stage_fp(p: Project) -> str:
     d = p.load_decisions()
-    return fingerprint('segment', [imaging.stage_fp(p, k) for k in p.sheet_keys],
+    return fingerprint('segment', code_fp(sys.modules[__name__]), [imaging.stage_fp(p, k) for k in p.sheet_keys],
                        {k: sheet_settings(p, k) for k in p.sheet_keys}, p.config.get('segment', {}),
                        score_settings(p), d['layout'], d['labels'])
 

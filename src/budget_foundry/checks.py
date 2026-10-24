@@ -69,8 +69,12 @@ def run(p: Project) -> list[dict]:
     msgs, ok = [], True
     for k, cnt in sorted(by_n.items()):
         tot = sum(cnt.values())
+        if tot < 10 * k:
+            msgs.append(f'{k} variants: {tot} samples, too few to judge'); continue
         shares = [cnt[s] / tot for s in range(k)]
-        lo, hi = 0.75 / k, 1.2 / k
+        # the spec's 25–40% for three variants, scaled to k, widened by two standard errors
+        se = 2 * (1 / k * (1 - 1 / k) / tot) ** 0.5
+        lo, hi = 0.75 / k - se, 1.2 / k + se
         ok &= all(lo <= sh_ <= hi for sh_ in shares)
         msgs.append(f'{k} variants: ' + ' / '.join(f'{x:.0%}' for x in shares) + f' (want {lo:.0%}–{hi:.0%})')
     unused = [f'{ch} slot {s}' for ch, (k, cnt) in per_char.items() if sum(cnt.values()) >= 4 * k

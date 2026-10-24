@@ -8,9 +8,21 @@ from fontTools.pens.basePen import BasePen
 from fontTools.ttLib import TTFont
 from PIL import Image, ImageChops, ImageDraw
 
-CORPUS = ('Some thoughts on making things by hand, and why they are worth it. '
-          'The quick brown fox jumped over the lazy dog. '
-          'Notes from the kitchen: what is on the menu this week. ') * 3
+# Varied prose that never repeats: a repeated sentence replays the same contexts and
+# can hide or invent a starved variant. Projects can set [checks] corpus.
+CORPUS = (
+    'Some thoughts on making things by hand, and why they are worth it. The quick brown fox jumped over '
+    'the lazy dog. Notes from the kitchen: what is on the menu this week, and what to do with the last of '
+    'the tomatoes before the frost. A letter is a small house for a thought; you build it once, and then '
+    'other people live in it. When the light goes early in October, the garden turns to seed heads and '
+    'the robins come back for the rowan berries. Bring a pencil, a ruler and a little patience. Write each '
+    'letter eight times, then choose the three that feel most like your hand on a good day. Nobody minds '
+    'if the second one wobbles; that wobble is the point. The bookshop on the corner keeps a shelf of old '
+    'atlases, their oceans faded to the colour of weak tea. Six jugglers quietly fixed the broken '
+    'velvet zip. Pack my box with five dozen liquor jugs. Morning pages, three of them, before anything '
+    'else: no editing, no rereading, only the pen moving across the paper until the timer goes. Then '
+    'coffee, then the inbox, then the long walk to the river and back again by the mill.'
+)
 DOUBLES = 'eeee oooo llll tttt ssss bookkeeper Mississippi coffee little better committee balloon'
 
 

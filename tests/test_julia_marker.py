@@ -1,5 +1,8 @@
 """Milestone 1 gate: rebuilding Julia Marker from the four original photos and the
-exported picks reproduces the shipped WOFF2's glyphs."""
+exported picks reproduces the shipped WOFF2's glyphs.
+
+GSUB is the one deliberate difference: the shipped cycle never showed the default of
+the four-variant characters (i, o, t), so the calt rules changed (features.wide_slot)."""
 from pathlib import Path
 
 import pytest
@@ -45,12 +48,27 @@ def test_glyphs_match_reference(project):
 def test_layout_tables_match_reference(project):
     built, ref = TTFont(project.build_dir / 'JuliaMarker-Regular.woff2'), TTFont(REFERENCE)
     assert built.getBestCmap() == ref.getBestCmap()
-    for t in ('GSUB', 'GPOS', 'hmtx', 'hhea', 'OS/2'):
+    for t in ('GPOS', 'hmtx', 'hhea', 'OS/2'):
         assert built[t].compile(built) == ref[t].compile(ref), t
 
 
-def test_features_match_v0(project):
-    assert (project.build_dir / 'features.fea').read_text() == (V0 / 'data' / 'features.fea').read_text()
+def test_kerning_matches_v0(project):
+    assert (project.build_dir / 'kern.fea').read_text() == (V0 / 'data' / 'kern.fea').read_text()
+
+
+def test_every_variant_shows_in_running_text(project):
+    from collections import Counter
+    from budget_foundry.shaping import CORPUS, Shaper
+    sh = Shaper(project.build_dir / 'JuliaMarker-Regular.otf')
+    slots, _ = sh.slots(CORPUS)
+    for ch in 'iot':
+        seen = Counter(s for c, s in zip(CORPUS, slots) if c == ch)
+        assert set(seen) == {0, 1, 2, 3}, (ch, seen)
+
+
+def test_checks_pass(project):
+    from budget_foundry import checks
+    assert [r for r in checks.run(project) if r['status'] == 'fail'] == []
 
 
 def test_build_is_fresh_after_build(project):

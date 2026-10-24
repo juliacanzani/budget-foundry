@@ -35,6 +35,11 @@ def fingerprint(*parts) -> str:
     return hashlib.sha256(json.dumps(parts, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()[:16]
 
 
+def code_fp(*modules) -> str:
+    """Fingerprint of the stage code itself, so upgrading the pipeline restales outputs."""
+    return fingerprint(*[Path(m.__file__).read_text() for m in modules])
+
+
 def candidate_id(source_sha: str, x: int, y: int, w: int, h: int) -> str:
     """Stable ID: source file content plus bounding box in the corrected sheet."""
     return hashlib.sha1(f'{source_sha}:{x},{y},{w},{h}'.encode()).hexdigest()[:10]

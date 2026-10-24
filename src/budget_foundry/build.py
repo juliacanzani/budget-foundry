@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
 
 import cv2
 import numpy as np
@@ -20,7 +21,7 @@ from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.ttLib import TTFont
 
 from . import features, imaging, kern, segment
-from .project import Project, fingerprint
+from .project import Project, code_fp, fingerprint
 
 FLAT_CAPS = 'EFHIKLTXZ'                 # cap height is measured on these
 XHEIGHT_CHARS = 'acemnorsuvwxz'
@@ -45,7 +46,7 @@ def settings(p: Project) -> dict:
 
 def stage_fp(p: Project) -> str:
     d = p.load_decisions()
-    return fingerprint('build', segment.stage_fp(p), settings(p), p.config.get('targets', {}),
+    return fingerprint('build', code_fp(sys.modules[__name__], features, kern), segment.stage_fp(p), settings(p), p.config.get('targets', {}),
                        p.config.get('kern', {}), p.config.get('features', {}), p.charset,
                        {k: p.config.get(k) for k in ('name', 'style', 'font_version', 'vendor')},
                        d['glyphs'], d['overrides'])
