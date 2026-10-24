@@ -1,0 +1,75 @@
+"""The local API: reads stage outputs, writes only decisions.json, previews with HarfBuzz."""
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+
+from budget_foundry.server import create_app
+from synth import synthetic_project
+
+
+@pytest.fixture(scope='module')
+def client(tmp_path_factory):
+    # sheet 1 holds A–J; the quotes sheet exercises derived curly singles
+    from budget_foundry import template
+    tmp = tmp_path_factory.mktemp('srv')
+    p = synthetic_project(tmp, sheets=(0, 7))
+    assert any(r['char'] == '“' for r in template.layout(p)['sheets'][7]['rows'])
+    return TestClient(create_app(p.root, log=lambda *a: None)), p
+
+
+def test_project_summary(client):
+    c, _ = client
+    pr = c.get('/api/project').json()
+    assert pr['name'] == 'Test Hand' and pr['metrics']['upm'] == 1000
+    assert {s['name']: s['state'] for s in pr['stages']}['normalise'] == 'done'
+
+
+def test_glyphs_carry_normalised_outlines(client):
+    c, _ = client
+    g = {e['char']: e for e in c.get('/api/glyphs').json()}
+    assert len(g['A']['candidates']) == 6
+    tile = g['A']['candidates'][0]
+    assert tile['path'].startswith('M') and tile['advance'] > 0
+    assert -30 < tile['ymin'] < 30 and 650 < tile['ymax'] < 760      # on the baseline, at cap height
+
+
+def test_choosing_writes_decisions_with_provenance(client):
+    c, p = client
+    ids = [k['id'] for k in c.get('/api/glyphs').json()[0]['candidates']]
+    ch = c.get('/api/glyphs').json()[0]['char']
+    r = c.put(f'/api/glyphs/{ch}', json={'keep': ids[:3], 'default': ids[2]})
+    assert r.status_code == 200
+    d = json.loads((p.root / 'decisions.json').read_text())['glyphs'][ch]
+    assert d == {'keep': ids[:3], 'default': ids[2], 'source': 'human'}
+    assert c.put(f'/api/glyphs/{ch}', json={'keep': ['nope']}).status_code == 422
+    assert c.put(f'/api/glyphs/{ch}', json={'keep': ids[:1], 'default': ids[2]}).status_code == 422
+
+
+def test_preview_cycles_and_reports_missing(client):
+    c, _ = client
+    g = c.get('/api/glyphs').json()
+    for e in g:
+        if not e['keep'] and e['candidates'] and e['char'] not in '‘’':
+            ids = [k['id'] for k in e['candidates']][:3]
+            c.put(f"/api/glyphs/{e['char']}", json={'keep': ids})
+    r = c.get('/api/preview', params={'text': 'AAA DEF xyz'}).json()
+    names = [x['name'] for x in r['glyphs']]
+    assert names[:3] == ['uni0041', 'uni0041.alt1', 'uni0041.alt2'] or len(set(names[:3])) == 3
+    assert all(x['path'] for x in r['glyphs'][:3])
+    assert set(r['missing']) == set('xyz')
+    off = c.get('/api/preview', params={'text': 'AAA', 'calt': False}).json()
+    assert [x['name'] for x in off['glyphs']] == ['uni0041'] * 3
+
+
+def test_curly_singles_follow_the_rule_until_chosen(client):
+    c, _ = client
+    q = {e['char']: e for e in c.get('/api/glyphs').json()}['‘']
+    assert q['source'] == 'auto' and q['keep']
+
+
+def test_source_tile(client):
+    c, _ = client
+    cid = c.get('/api/glyphs').json()[0]['candidates'][0]['id']
+    r = c.get(f'/api/candidates/{cid}/source.png')
+    assert r.status_code == 200 and r.headers['content-type'] == 'image/png'

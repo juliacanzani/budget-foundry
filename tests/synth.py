@@ -78,3 +78,22 @@ def photograph(img, seed=0, tilt=0.06, rotate=4.0):
     buf = io.BytesIO()
     Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(buf, 'JPEG', quality=85)
     return buf.getvalue()
+
+
+def synthetic_project(tmp, sheets=(0,), font=None, mono_every=2):
+    """A new project with a template and photos of `sheets` written in Julia Marker."""
+    from pathlib import Path
+    from budget_foundry import template
+    from budget_foundry.project import Project
+    from budget_foundry.workspace import add_sources, new_project
+    font = font or Path(__file__).resolve().parents[1] / 'budget-foundry-v0' / 'build' / 'JuliaMarker-Regular.otf'
+    p = new_project(tmp / 'hand', 'Test Hand')
+    pdfs = {False: template.write_pdf(p, tmp / 'colour.pdf')[0], True: template.write_pdf(p, tmp / 'mono.pdf', mono=True)[0]}
+    lay = template.layout(p)
+    files = []
+    for k, n in enumerate(sheets):
+        mono = bool(mono_every) and k % mono_every == 1
+        img, _ = write_rows(page_image(pdfs[mono], n, 12), lay['sheets'][n], 12, font, seed=n, guide_gamma=1.5 if mono else 1.0)
+        f = tmp / f'sheet{n + 1:02d}.jpg'; f.write_bytes(photograph(img, seed=n, rotate=(-1) ** n * (2 + n % 4))); files.append(f)
+    add_sources(p, files, log=lambda *a: None)
+    return Project.open(p.root)

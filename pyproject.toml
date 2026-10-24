@@ -16,6 +16,8 @@ dependencies = [
     "typer",
     "reportlab>=5.1.0",
     "pypdfium2>=5.14.0",
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
@@ -26,6 +28,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["pytest"]
+dev = [
+    "httpx>=0.28.1",
+    "pytest",
+]
 [tool.pytest.ini_options]
 pythonpath = ["tests"]

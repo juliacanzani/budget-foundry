@@ -36,6 +36,7 @@ FLAT_CAPS = 'EFHIKLTXZ'                 # cap height is measured on these
 XHEIGHT_CHARS = 'acemnorsuvwxz'
 DESC_C = 'gjpqyQ'                       # placed by their tops
 ROUND_BOT = set('OCGSQUJ0368935ocesuvwg')  # overshoot below the baseline
+XHEIGHT_RATIO, DESCENDER_RATIO = 0.66, 0.33  # of cap height, until those letters are imported
 
 DEFAULTS = dict(
     metrics=dict(upm=1000, cap=700, overshoot=12, ascender=900, descender=-300, space=260),
@@ -123,14 +124,8 @@ class Builder:
         self.s = settings(p)
         self.cands, index = segment.load(p)
         self.SW = index['sheet_stroke']
-        self.decisions = p.load_decisions()
         self.labs = {}
-        self.picks, self.refs = picks_from(self.decisions)
-        missing = [i for ids in self.picks.values() for i in ids if i not in self.cands]
-        missing += [r.split('#')[0] for rs in self.refs.values() for r in rs if r.split('#')[0] not in self.cands]
-        if missing:
-            raise RuntimeError(f'{len(missing)} kept candidates no longer exist (relabelled or re-segmented): {missing[:8]}')
-        self.refs.update(self.auto_refs(self.picks, self.refs))
+        self.choose(p.load_decisions())
         if work == 'kept':
             self.work_drawn, self.work_refs = self.picks, self.refs
         else:
@@ -141,6 +136,16 @@ class Builder:
                 n = self.half(spec)
                 every = [f"{c['id']}#{n}" for c in self.cands.values() if c['ch'] == spec['from'] and self._splits(c['id'])]
                 self.work_refs[ch] = list(dict.fromkeys(self.refs.get(ch, []) + every))
+
+    def choose(self, decisions: dict):
+        """Set what the font is assembled from."""
+        self.decisions = decisions
+        self.picks, self.refs = picks_from(decisions)
+        missing = [i for ids in self.picks.values() for i in ids if i not in self.cands]
+        missing += [r.split('#')[0] for rs in self.refs.values() for r in rs if r.split('#')[0] not in self.cands]
+        if missing:
+            raise RuntimeError(f'{len(missing)} kept candidates no longer exist (relabelled or re-segmented): {missing[:8]}')
+        self.refs.update(self.auto_refs(self.picks, self.refs))
 
     def component_specs(self):
         return [(ch, s) for ch, s in self.p.charset.get('derived', {}).items() if s.get('method') == 'component']
@@ -182,9 +187,15 @@ class Builder:
         m, n = self.s['metrics'], self.s['normalise']
         P = self.work_drawn
         self.UPM, self.CAP, self.OS = m['upm'], m['cap'], m['overshoot']
-        cap_sw = np.median([self.top_sw(i) - self.bot_sw(i) for c in FLAT_CAPS if c in P for i in P[c]])
+        caps = [self.top_sw(i) - self.bot_sw(i) for c in FLAT_CAPS if c in P for i in P[c]]
+        xs = [self.top_sw(i) - self.bot_sw(i) for c in XHEIGHT_CHARS if c in P for i in P[c]]
+        ratio = self.p.config.get('template', {}).get('xheight', XHEIGHT_RATIO)
+        # early in a project only some sheets are in: estimate whichever height is missing
+        if not caps and not xs:
+            raise RuntimeError('need capitals (E F H I K L T X Z) or flat lowercase (a c e m n o r s u v w x z) to set the scale')
+        cap_sw = np.median(caps) if caps else np.median(xs) / ratio
         self.U = self.CAP / cap_sw                                   # font units per stroke width
-        self.XH = np.median([self.top_sw(i) - self.bot_sw(i) for c in XHEIGHT_CHARS if c in P for i in P[c]]) * self.U
+        self.XH = np.median(xs) * self.U if xs else self.CAP * ratio
         self.log(f'  stroke={self.U:.0f}u x-height={self.XH:.0f}u')
         TGT = resolve_targets(self.p, self.CAP, self.XH, self.OS)
         self.FACT = {}
@@ -276,8 +287,10 @@ class Builder:
             elif ch in DESC_C:                    # Q: top on the cap height
                 d = CAP - np.median([q['ymax'] for q in gs])
                 for g in gs: g['dy'] = d
-        self.DOT = np.median([g['ymax'] - g['ymin'] for g in classof('.')])
-        self.DESC = -np.median([g['ymin'] + g['dy'] for c in 'gpqy' for g in classof(c)])
+        dots = [g['ymax'] - g['ymin'] for g in classof('.')]
+        descs = [g['ymin'] + g['dy'] for c in 'gpqy' for g in classof(c)]
+        self.DOT = np.median(dots) if dots else self.U                # a dot is about a stroke across
+        self.DESC = -np.median(descs) if descs else CAP * DESCENDER_RATIO
         for ch in '.…!?%#&:': place_bottom(ch, 0)
         place_top(',', self.DOT * pl['comma_top']); place_top(';', XH * pl['semicolon_top'])
         for ch in ["'", '"', '“', '”', '‘', '’', '*']: place_top(ch, CAP + pl['quote_above_cap'])

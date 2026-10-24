@@ -26,8 +26,8 @@ DESCENDS = set('gjpqy,;()[]{}_|Q')
 XHEIGHT_CHARS = 'acemnorsuvwxz'
 XTOP_DESCENDERS = set('gpqy')   # descenders whose top sits on the x-height
 TILE = dict(px_per_stroke=13, above=10.5, below=5.0, pad=0.4)
-SCORE_DEFAULTS = dict(small=0.82, large=1.2, heavy=1.35, light=0.75, slant=12, bounce=1.2,
-                      keep_frequent=4, keep_rare=2, keep=3, frequent='eaonsti', rare='[]{}|_#@×÷…;“”«»%*\\/')
+SCORE_DEFAULTS = dict(flag_percentile=90, keep_frequent=4, keep_rare=2, keep=3, frequent='eaonsti',
+                      rare='[]{}|_#@×÷…;“”«»%*\\/')
 FULL = (0, 99999)
 
 
@@ -203,28 +203,40 @@ def tile(g, lab, sw):
 
 
 def score(cands, s):
+    """Score each candidate against the others of its character (the suggested keepers
+    are the lowest scores), and flag the outer share across the whole font for size,
+    weight, width, slant and bounce. Weight isn't judged on mostly horizontal glyphs
+    (- – — _ = ~), where the skeleton measure is unreliable."""
     by = {}
     for g in cands: by.setdefault(g['ch'], []).append(g)
+    dev = {k: [] for k in ('size', 'weight', 'width', 'slant', 'bounce')}
     for ch, gs in by.items():
         mh = np.median([g['h_sw'] for g in gs]); mb = np.median([g['bot_sw'] for g in gs])
+        mw = np.median([g['w_sw'] for g in gs])
         sl = [g['slant'] for g in gs if g['slant'] is not None]; ms = np.median(sl) if sl else None
         for g in gs:
             size = g['h_sw'] / mh; rw = g['wt'] / size
-            flags = []
-            if size < s['small']: flags.append('small')
-            if size > s['large']: flags.append('large')
-            if rw > s['heavy']: flags.append('heavy')
-            if rw < s['light']: flags.append('light')
-            sd = None
-            if ms is not None and g['slant'] is not None:
-                sd = g['slant'] - ms
-                if abs(sd) > s['slant']: flags.append(f"slant {'+' if sd > 0 else '−'}{abs(sd):.0f}°")
+            sd = g['slant'] - ms if ms is not None and g['slant'] is not None else None
             bd = g['bot_sw'] - mb
-            if abs(bd) > s['bounce'] and ch.isalnum(): flags.append('drops' if bd > 0 else 'floats')
             sc = abs(math.log(size)) * 2 + abs(math.log(rw)) * 2 + (abs(sd) / 15 if sd is not None else 0) + abs(bd) / 3
-            g.update(size=round(size, 2), rw=round(rw, 2), flags=flags, score=round(sc, 3), suggested=False)
+            g.update(size=round(size, 2), rw=round(rw, 2), score=round(sc, 3), suggested=False, flags=[])
+            g['_dev'] = dict(size=math.log(size), width=math.log(g['w_sw'] / mw),
+                             weight=math.log(rw) if g['w_sw'] <= 2 * g['h_sw'] else None,
+                             slant=sd, bounce=bd if ch.isalnum() else None)
+            if len(gs) >= 3:
+                for k, v in g['_dev'].items():
+                    if v is not None: dev[k].append(abs(v))
         n = s['keep_frequent'] if ch in s['frequent'] else (s['keep_rare'] if ch in s['rare'] else s['keep'])
         for g in sorted(gs, key=lambda g: g['score'])[:n]: g['suggested'] = True
+    cut = {k: float(np.percentile(v, s['flag_percentile'])) if v else math.inf for k, v in dev.items()}
+    words = dict(size=('small', 'large'), weight=('light', 'heavy'), width=('narrow', 'wide'), bounce=('floats', 'drops'))
+    for ch, gs in by.items():
+        for g in gs:
+            d = g.pop('_dev')
+            if len(gs) < 3: continue
+            for k, v in d.items():
+                if v is None or abs(v) <= cut[k] or abs(v) < 1e-9: continue
+                g['flags'].append(f"slant {'+' if v > 0 else '−'}{abs(v):.0f}°" if k == 'slant' else words[k][int(v > 0)])
 
 
 # ---- stage
