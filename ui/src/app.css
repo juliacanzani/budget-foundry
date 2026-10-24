@@ -37,12 +37,15 @@ html, body { margin: 0; }
 .rail { grid-area: rail; border-inline-end: 1px solid var(--tui-color-border); padding: var(--tui-spacing-md) var(--tui-spacing-sm); }
 .rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; position: sticky; top: var(--tui-spacing-md); }
 .rail li {
-  display: grid; grid-template-columns: 1.5rem 1fr auto; align-items: center; gap: var(--tui-spacing-xs);
+  display: grid; grid-template-columns: 1rem 1fr; align-items: start; gap: var(--tui-spacing-sm);
   padding: var(--tui-spacing-xs) var(--tui-spacing-sm); border-radius: var(--tui-radius-md);
   color: var(--tui-color-fg-secondary);
 }
 .rail li.is-current { background: var(--tui-color-fill-subtle); color: var(--tui-color-fg); font-weight: 600; }
-.rail__n { color: var(--tui-color-fg-muted); font-variant-numeric: tabular-nums; }
+.rail__state { display: flex; padding-block-start: 0.15em; }
+/* An empty ring is all "not run" shows, so its track needs 3:1 (TUI's fill is 1.2:1 here).
+   Not on the current row: there the faint track sets off the progress, and the text says it. */
+.rail li:not(.is-current) { --tui-progress-track: var(--bf-ring); }
 .rail__name { display: grid; line-height: 1.25; }
 .rail__cli { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-weight: 400; }
 
@@ -141,6 +144,7 @@ html, body { margin: 0; }
   .rail { border-inline-end: 0; border-bottom: 1px solid var(--tui-color-border); }
   .rail ol { position: static; grid-auto-flow: column; overflow-x: auto; }
   .rail__cli { display: none; }
+  .rail__name { white-space: nowrap; }
   .preview { grid-template-columns: minmax(0, 1fr); }
   .cull__char { grid-template-columns: minmax(0, 1fr); }
   .cull__label { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: var(--tui-spacing-sm); }

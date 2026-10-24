@@ -73,7 +73,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
         }} />
         <Button size="sm" theme="primary" label="Build font" loading={building} loadingLabel="Building" onClick={build} />
       </header>
-      <StageRail stages={project.data.stages} toChoose={project.data.characters - project.data.decided} />
+      <StageRail stages={project.data.stages} decided={project.data.decided} characters={project.data.characters} />
       <main className="app__main" id="main">
         <BuildResult result={result} error={buildError} onDismiss={() => { setResult(null); setBuildError(null); }} />
         <LookAlikes glyphs={glyphs.data} frame={frame} />
