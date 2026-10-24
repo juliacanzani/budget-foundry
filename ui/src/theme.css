@@ -81,19 +81,19 @@
 /* Budget Foundry's own tile colours, on the site's hues. Each solved for contrast, not
    picked by eye: borders 3:1 against the page and the tile (they identify the control),
    the default star 3:1 against the kept tint it always sits on. Pink is new: the site
-   has none, so it takes the purple's chroma at hue 352. Kept tiles also get the tint
+   has none, so it takes the purple's chroma at hue 352. Kept tiles also get a lilac tint
    and a doubled border, so colour is never the only cue. */
 :where(.tui-interface) {
   --bf-tile-border: oklch(0.650 0.100 318.4);        /* 3.1:1 page */
   --bf-tile-border-kept: oklch(0.600 0.190 352);     /* 4.0:1 page */
-  --bf-tile-fill-kept: oklch(0.955 0.026 352);
-  --bf-star: oklch(0.620 0.130 80);                  /* deep gold: 3.2:1 on the kept tint */
+  --bf-tile-fill-kept: var(--purple-50);             /* lilac: a pink field read as an error */
+  --bf-star: oklch(0.620 0.130 80);                  /* deep gold: 3.1:1 on the lilac */
 }
 :where(.tui-interface)[data-theme=dark] {
   --bf-tile-border: oklch(0.560 0.100 318.4);        /* 4.0:1 page, 3.3:1 tile */
   --bf-tile-border-kept: oklch(0.720 0.150 352);     /* 7.3:1 page */
-  --bf-tile-fill-kept: oklch(0.270 0.070 352);
-  --bf-star: oklch(0.870 0.170 92);                  /* yellow: 10:1 on the kept tint */
+  --bf-tile-fill-kept: oklch(0.280 0.070 318.4);     /* lilac, pink border 5.6:1 on it */
+  --bf-star: oklch(0.870 0.170 92);                  /* yellow: 10:1 on the lilac */
 }
 
 /* Headings in Zodiak, as on the site; body text stays the system face */
