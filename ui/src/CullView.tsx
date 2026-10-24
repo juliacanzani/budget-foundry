@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button, Chip, Icon, SegmentedControl, Switch } from '@tangible/ui';
+import { Button, Chip, IconButton, SegmentedControl, Switch, Tooltip, TooltipProvider } from '@tangible/ui';
 import { api, type Glyph } from './api';
 import { GlyphArt, type Frame } from './GlyphArt';
 
@@ -14,7 +14,7 @@ type Props = { glyphs: Glyph[]; frame: Frame; announce: (msg: string) => void };
 
 /**
  * One row per character, every candidate normalised and drawn on the guides.
- * Keyboard: arrows move, Space keeps, S stars the default, J/K jump characters.
+ * Keyboard: arrows move (up and down between characters), Space keeps, S stars the default.
  * One tab stop for the whole list (roving focus); the shortcuts only act on a
  * focused tile, so they never fire while typing elsewhere.
  */
@@ -115,8 +115,6 @@ export function CullView({ glyphs, frame, announce }: Props) {
       case 'ArrowUp': target = go(-1); break;
       case 'Home': target = row[0]; break;
       case 'End': target = row.at(-1); break;
-      case 'j': case 'J': target = positions[gi + 1]?.[0]; break;
-      case 'k': case 'K': target = positions[gi - 1]?.[0]; break;
       case 's': case 'S': star(visible[gi], row[ci]); e.preventDefault(); return;
       default: return;
     }
@@ -155,13 +153,13 @@ export function CullView({ glyphs, frame, announce }: Props) {
           )}
         </div>
         <p className="cull__keys" id="cull-keys">
-          <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>Space</kbd> keep · <kbd>S</kbd> default ·{' '}
-          <kbd>J</kbd> <kbd>K</kbd> next and previous character
+          <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>Space</kbd> keep · <kbd>S</kbd> or the star: default
         </p>
       </header>
 
       {visible.length === 0 && <p className="cull__empty">Nothing to show with these filters.</p>}
 
+      <TooltipProvider>
       <div className="cull__list" role="group" aria-label="Candidates" aria-describedby="cull-keys">
         {visible.map((g, gi) => {
           const decided = g.keep.length > 0;
@@ -191,37 +189,54 @@ export function CullView({ glyphs, frame, announce }: Props) {
                   const kept = keep.includes(c.id);
                   const isDefault = c.id === def && kept;
                   return (
-                    <button
-                      key={c.id}
-                      ref={(el) => { if (el) tiles.current.set(c.id, el); else tiles.current.delete(c.id); }}
-                      type="button"
-                      className="tile"
-                      data-kept={kept || undefined}
-                      data-tentative={(!decided && kept) || undefined}
-                      aria-pressed={decided ? kept : false}
-                      tabIndex={c.id === tabStop ? 0 : -1}
-                      onFocus={() => setActive(c.id)}
-                      onClick={() => toggle(g, c.id)}
-                      onKeyDown={(e) => onKeyDown(e, gi, ci)}
-                    >
-                      <span className="tile__art">
-                        {showSource ? (
-                          <img src={api.sourceTile(c.id)} alt="" height={TILE_HEIGHT} />
-                        ) : (
-                          <GlyphArt path={c.path} advance={c.advance} frame={frame} height={TILE_HEIGHT} />
-                        )}
-                        {isDefault && <span className="tile__star"><Icon name="system/star-fill" /></span>}
-                      </span>
-                      <span className="tile__meta">
-                        <span className="tui-visually-hidden">
-                          Candidate {ci + 1} of {g.candidates.length}
-                          {isDefault ? ', default' : ''}
-                          {!decided && kept ? ', suggested' : ''}
-                          {c.flags.length ? ', ' : ''}
+                    <div key={c.id} className="tile" data-kept={kept || undefined} data-tentative={(!decided && kept) || undefined}>
+                      <button
+                        ref={(el) => { if (el) tiles.current.set(c.id, el); else tiles.current.delete(c.id); }}
+                        type="button"
+                        className="tile__toggle"
+                        aria-pressed={decided ? kept : false}
+                        tabIndex={c.id === tabStop ? 0 : -1}
+                        onFocus={() => setActive(c.id)}
+                        onClick={() => toggle(g, c.id)}
+                        onKeyDown={(e) => onKeyDown(e, gi, ci)}
+                      >
+                        <span className="tile__art">
+                          {showSource ? (
+                            <img src={api.sourceTile(c.id)} alt="" height={TILE_HEIGHT} />
+                          ) : (
+                            <GlyphArt path={c.path} advance={c.advance} frame={frame} height={TILE_HEIGHT} />
+                          )}
                         </span>
-                        <span className="tile__flags">{c.flags.join(', ')}</span>
-                      </span>
-                    </button>
+                        <span className="tile__meta">
+                          <span className="tui-visually-hidden">
+                            Candidate {ci + 1} of {g.candidates.length}
+                            {isDefault ? ', default' : ''}
+                            {!decided && kept ? ', suggested' : ''}
+                            {c.flags.length ? ', ' : ''}
+                          </span>
+                          <span className="tile__flags">{c.flags.join(', ')}</span>
+                        </span>
+                      </button>
+                      {/* The pointer's way to star a default; the keyboard's is S on the tile. Out of the
+                          tab order so the list stays one stop; screen readers still reach it in browse mode. */}
+                      <Tooltip>
+                        <Tooltip.Trigger asChild>
+                          <IconButton
+                            className="tile__star"
+                            icon={isDefault ? 'system/star-fill' : 'system/star-outline'}
+                            label="Default"
+                            pressed={isDefault}
+                            variant="ghost"
+                            size="xs"
+                            tabIndex={-1}
+                            onClick={() => star(g, c.id)}
+                          />
+                        </Tooltip.Trigger>
+                        <Tooltip.Content side="top">
+                          {isDefault ? `The default ${g.char}` : `Make this ${g.char} the default`} · <kbd>S</kbd>
+                        </Tooltip.Content>
+                      </Tooltip>
+                    </div>
                   );
                 })}
               </div>
@@ -229,6 +244,7 @@ export function CullView({ glyphs, frame, announce }: Props) {
           );
         })}
       </div>
+      </TooltipProvider>
     </section>
   );
 }

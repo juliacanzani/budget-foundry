@@ -37,7 +37,13 @@ export type PreviewGlyph = { name: string; x: number; advance: number; path: str
 export type Preview = { width: number; glyphs: PreviewGlyph[]; missing: string[] };
 
 export type Check = { check: string; status: 'pass' | 'warn' | 'fail'; detail: string };
-export type Job = { state: 'idle' | 'running' | 'done' | 'failed'; log?: string[]; error?: string; result?: { checks: Check[] } };
+export type BuildResult = {
+  checks: Check[];
+  files: { woff2: string; otf: string; specimen: string; css: string };
+  export_to: string | null;
+  blocked: boolean;
+};
+export type Job = { state: 'idle' | 'running' | 'done' | 'failed'; log?: string[]; error?: string; result?: BuildResult };
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -59,6 +65,7 @@ export const api = {
   preview: (text: string, calt: boolean) =>
     fetch(`/api/preview?${new URLSearchParams({ text, calt: String(calt) })}`).then((r) => json<Preview>(r)),
   build: () => fetch('/api/build', { method: 'POST' }).then((r) => json<{ state: string }>(r)),
+  exportFont: () => fetch('/api/export', { method: 'POST' }).then((r) => json<{ files: string[] }>(r)),
   job: (name: string) => fetch(`/api/jobs/${name}`).then((r) => json<Job>(r)),
   sourceTile: (id: string) => `/api/candidates/${encodeURIComponent(id)}/source.png`,
 };

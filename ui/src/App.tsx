@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Notice } from '@tangible/ui';
-import { api, type Check } from './api';
+import { api, type BuildResult as Result } from './api';
+import { BuildResult } from './BuildResult';
 import { CullView } from './CullView';
 import type { Frame } from './GlyphArt';
 import { LookAlikes } from './LookAlikes';
@@ -14,7 +15,7 @@ export function App() {
   const glyphs = useQuery({ queryKey: ['glyphs'], queryFn: api.glyphs });
   const [message, setMessage] = useState('');
   const [building, setBuilding] = useState(false);
-  const [checks, setChecks] = useState<Check[] | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
   const [buildError, setBuildError] = useState<string | null>(null);
   const events = useRef<EventSource | null>(null);
 
@@ -28,7 +29,7 @@ export function App() {
   }, [project.data, glyphs.data]);
 
   const build = async () => {
-    setBuilding(true); setChecks(null); setBuildError(null); setMessage('Building the font…');
+    setBuilding(true); setResult(null); setBuildError(null); setMessage('Building the font…');
     events.current?.close();
     const es = new EventSource('/api/events');
     events.current = es;
@@ -40,7 +41,7 @@ export function App() {
       setBuilding(false);
       qc.invalidateQueries({ queryKey: ['project'] });
       if (job.state === 'done' && job.result) {
-        setChecks(job.result.checks);
+        setResult(job.result);
         const failed = job.result.checks.filter((c) => c.status === 'fail').length;
         setMessage(failed ? `Built, ${failed} check${failed === 1 ? '' : 's'} failed` : 'Built, every check passed');
       } else {
@@ -67,20 +68,7 @@ export function App() {
       </header>
       <StageRail stages={project.data.stages} toChoose={project.data.characters - project.data.decided} />
       <main className="app__main" id="main">
-        {(checks || buildError) && (
-          <Notice theme={buildError ? 'danger' : checks!.some((c) => c.status === 'fail') ? 'warning' : 'success'} dismissible onDismiss={() => { setChecks(null); setBuildError(null); }}>
-            <Notice.Head title={buildError ? 'Build failed' : 'Font built'} />
-            <Notice.Body>
-              {buildError ? <p>{buildError}</p> : (
-                <ul className="checks">
-                  {checks!.map((c) => (
-                    <li key={c.check} data-status={c.status}><strong>{c.check}</strong> <span>{c.status}</span>: {c.detail}</li>
-                  ))}
-                </ul>
-              )}
-            </Notice.Body>
-          </Notice>
-        )}
+        <BuildResult result={result} error={buildError} onDismiss={() => { setResult(null); setBuildError(null); }} />
         <LookAlikes glyphs={glyphs.data} frame={frame} />
         <CullView glyphs={glyphs.data} frame={frame} announce={setMessage} />
       </main>

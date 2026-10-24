@@ -203,6 +203,25 @@ def create_app(root: Path, log=print) -> FastAPI:
         if not f.exists(): raise HTTPException(404)
         return FileResponse(f, media_type='image/png')
 
+    @app.get('/api/build/files/{name}')
+    def build_file(name: str):
+        d = st.p.build_dir
+        allowed = {f.name: f for f in d.glob('*') if f.suffix in ('.woff2', '.otf', '.html', '.css')} if d.exists() else {}
+        if name not in allowed: raise HTTPException(404)
+        return FileResponse(allowed[name], filename=name if name.endswith(('.woff2', '.otf')) else None)
+
+    @app.post('/api/export')
+    def export():
+        from . import specimen
+        p = st.p
+        if 'export_to' not in p.config: raise HTTPException(409, 'set export_to in project.toml first')
+        with st.lock:
+            res = checks.run(p)
+            failed = [r['check'] for r in res if r['status'] == 'fail']
+            if failed: raise HTTPException(409, f'export is blocked by failing checks: {", ".join(failed)}')
+            out = specimen.export(p, Path(p.config['export_to']).expanduser())
+        return dict(files=[str(f) for f in out])
+
     @app.post('/api/build')
     def run_build():
         st.run_job('build', lambda log: _build(st.p, log))
@@ -242,6 +261,10 @@ def create_app(root: Path, log=print) -> FastAPI:
 
 
 def _build(p: Project, log):
+    from . import specimen
     pipeline.run_build(p, log=log)
     res = checks.run(p)
-    return dict(checks=res, metrics=json.loads((p.build_dir / 'metrics.json').read_text()))
+    spec, css = specimen.write(p)
+    return dict(checks=res, metrics=json.loads((p.build_dir / 'metrics.json').read_text()),
+                files=dict(woff2=f'{p.ps_name}.woff2', otf=f'{p.ps_name}.otf', specimen=spec.name, css=css.name),
+                export_to=p.config.get('export_to'), blocked=any(r['status'] == 'fail' for r in res))

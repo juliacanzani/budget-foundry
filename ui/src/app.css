@@ -85,20 +85,27 @@ html, body { margin: 0; }
 .cull__tiles { display: flex; flex-wrap: wrap; gap: var(--tui-spacing-xs); align-items: flex-start; }
 
 .tile {
-  display: grid; justify-items: center; gap: 2px; min-width: 3rem;
-  padding: var(--tui-spacing-xxs) var(--tui-spacing-xs) var(--tui-spacing-xs);
-  font: inherit; color: var(--tui-color-fg); cursor: pointer;
+  position: relative; display: grid;
   background: var(--tui-color-bg-surface);
   border: 1px solid var(--tui-color-border-control); border-radius: var(--tui-radius-md);
 }
 .tile:hover { border-color: var(--tui-color-fg-muted); }
-.tile:focus-visible { outline: 3px solid var(--tui-color-focus-ring); outline-offset: 2px; }
+.tile:has(.tile__toggle:focus-visible) { outline: 3px solid var(--tui-color-focus-ring); outline-offset: 2px; }
 .tile[data-kept] { background: var(--tui-theme-primary-subtlest); border-color: var(--tui-theme-primary-base); box-shadow: inset 0 0 0 1px var(--tui-theme-primary-base); }
 .tile[data-tentative] { background: var(--tui-color-bg-surface); box-shadow: none; border-style: dashed; }
-.tile__art { position: relative; color: var(--tui-color-fg); }
+.tile__toggle {
+  display: grid; justify-items: center; gap: 2px; min-width: 3rem;
+  padding: var(--tui-spacing-lg) var(--tui-spacing-xs) var(--tui-spacing-xs);
+  font: inherit; color: var(--tui-color-fg); cursor: pointer;
+  background: none; border: 0; border-radius: inherit;
+}
+.tile__toggle:focus-visible { outline: none; }   /* the cell draws the ring, around the star too */
+.tile__art { color: var(--tui-color-fg); }
 .tile__art img { display: block; width: auto; }
 [data-theme='dark'] .tile__art img { filter: invert(1); }
-.tile__star { position: absolute; inset-block-start: 2px; inset-inline-end: 2px; color: var(--tui-theme-warning-base); }
+.tile__star { position: absolute; inset-block-start: 1px; inset-inline-end: 1px; }
+.tile:not([data-kept]) .tile__star:not(:hover) { opacity: 0.55; }
+.tile__star[aria-pressed='true'] { color: var(--tui-theme-primary-base); opacity: 1; }
 .tile__flags { font-size: 0.6875rem; line-height: 1.2; color: var(--tui-theme-danger-stronger); max-width: 7.5rem; text-align: center; min-height: 0.8rem; }
 
 /* preview */
@@ -111,9 +118,20 @@ html, body { margin: 0; }
 .preview__line.is-loading { height: 80px; }
 .preview__error { color: var(--tui-theme-danger-stronger); }
 
-.checks { margin: 0; padding-inline-start: 1.1rem; display: grid; gap: 2px; }
-.checks li[data-status='fail'] span { color: var(--tui-theme-danger-stronger); font-weight: 600; }
-.checks li[data-status='warn'] span { color: var(--tui-theme-warning-stronger); font-weight: 600; }
+.build-result__next { margin: 0 0 var(--tui-spacing-sm); }
+.build-result__actions { display: flex; flex-wrap: wrap; gap: var(--tui-spacing-sm); margin-block-end: var(--tui-spacing-md); }
+.build-result__done { margin: 0 0 var(--tui-spacing-sm); }
+.build-result__error { margin: 0 0 var(--tui-spacing-sm); color: var(--tui-theme-danger-stronger); }
+.checks { list-style: none; margin: 0 0 var(--tui-spacing-sm); padding: 0; display: grid; gap: var(--tui-spacing-xs); }
+.checks.is-compact { display: flex; flex-wrap: wrap; gap: var(--tui-spacing-xxs) var(--tui-spacing-md); }
+.check { display: flex; align-items: flex-start; gap: var(--tui-spacing-xs); }
+.check .tui-icon { flex: none; margin-block-start: 0.15em; }
+.check[data-status='pass'] .tui-icon { color: var(--tui-theme-success-stronger); }
+.check[data-status='warn'] .tui-icon { color: var(--tui-theme-warning-stronger); }
+.check[data-status='fail'] .tui-icon { color: var(--tui-theme-danger-stronger); }
+.check__text { display: grid; }
+.check__name { font-weight: 600; }
+.check__detail { color: var(--tui-color-fg-secondary); font-size: 0.875rem; }
 
 @media (max-width: 52rem) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'rail' 'main' 'preview'; }
@@ -124,3 +142,7 @@ html, body { margin: 0; }
   .cull__char { grid-template-columns: minmax(0, 1fr); }
   .cull__label { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: var(--tui-spacing-sm); }
 }
+
+
+/* Button-as-link: no underline, as on the button form */
+.build-result__actions a.tui-button { text-decoration: none; }

@@ -1,0 +1,82 @@
+/* The palette of juliacanzani.com (personal-site, src/styles/global.css, Oct 2026):
+   warm paper in light mode, purple night in dark, the site's purple as primary.
+   TUI primitives at TUI's own zero specificity, so data-theme flips them per scope.
+   Copied, not linked: this repo is public and builds without the site. */
+
+:root {
+  --purple-50:  #F1E7F4;
+  --purple-100: #E1C9E8;
+  --purple-200: #b992c5;
+  --purple-500: #5E286D;
+  --purple-700: #722D85;
+  --purple-800: #50235C;
+  --purple-900: #2F1736;
+  --font-display: 'Zodiak', Georgia, 'Times New Roman', serif;
+}
+
+:where(.tui-interface) {
+  --tui-color-bg: oklch(96.586% 0.00782 73.51);
+  --tui-color-bg-surface: oklch(0.977 0.015 61);
+  --tui-color-bg-muted: oklch(0.955 0.015 61);
+  --tui-color-bg-elevated: oklch(0.995 0.004 61);
+  --tui-color-border: oklch(0.900 0.015 61);
+  --tui-color-divider: oklch(0.940 0.015 61);
+  --tui-color-fill-subtle: oklch(0.955 0.015 61);
+  --tui-color-fill: oklch(0.900 0.015 61);
+  --tui-color-fill-strong: oklch(0.680 0.015 61);
+  --tui-color-fg: oklch(0.180 0.015 61);
+  --tui-color-fg-secondary: oklch(0.420 0.015 61);
+  --tui-color-fg-muted: oklch(0.530 0.015 61);
+  --tui-theme-primary-strongest: var(--purple-900);
+  --tui-theme-primary-stronger: var(--purple-800);
+  /* Ordered by contrast with the paper: 700 (7.8:1) sits below 500 (9.5:1) */
+  --tui-theme-primary-strong: var(--purple-500);
+  --tui-theme-primary-base: var(--purple-700);
+  --tui-theme-primary-soft: var(--purple-200);
+  --tui-theme-primary-subtle: var(--purple-100);
+  --tui-theme-primary-subtlest: var(--purple-50);
+  --tui-theme-secondary-strongest: oklch(0.280 0.113 284);
+  --tui-theme-secondary-stronger: oklch(0.380 0.133 284);
+  --tui-theme-secondary-strong: oklch(0.440 0.133 284);
+  --tui-theme-secondary-base: oklch(0.520 0.133 284);
+  --tui-theme-secondary-soft: oklch(0.780 0.073 284);
+  --tui-theme-secondary-subtle: oklch(0.930 0.040 284);
+  --tui-theme-secondary-subtlest: oklch(0.970 0.020 284);
+}
+
+:where(.tui-interface)[data-theme=dark] {
+  --tui-color-bg: oklch(0.170 0.063 305);
+  --tui-color-bg-surface: var(--purple-900);
+  --tui-color-bg-muted: oklch(0.220 0.063 305);
+  --tui-color-bg-elevated: oklch(0.200 0.063 305);
+  --tui-color-border: var(--purple-800);
+  --tui-color-divider: oklch(0.250 0.063 305);
+  --tui-color-fill-subtle: oklch(0.250 0.063 305);
+  --tui-color-fill: oklch(0.320 0.063 305);
+  --tui-color-fill-strong: oklch(0.450 0.063 305);
+  --tui-color-fg: oklch(0.950 0.032 305);
+  --tui-color-fg-secondary: oklch(0.750 0.044 305);
+  --tui-color-fg-muted: oklch(0.650 0.044 305);
+  --tui-theme-primary-strongest: var(--purple-50);
+  --tui-theme-primary-stronger: var(--purple-100);
+  --tui-theme-primary-strong: var(--purple-200);
+  /* The brand purple is too dark to be a dark-mode step (1.8:1, below soft);
+     this is the same hue solved to 4.6:1, between soft and strong */
+  --tui-theme-primary-base: oklch(0.600 0.124 318.4);
+  --tui-theme-primary-soft: var(--purple-700);
+  --tui-theme-primary-subtle: var(--purple-800);
+  --tui-theme-primary-subtlest: var(--purple-900);
+  /* Not from the site: white on that base is 4.2:1, under AA, wherever an accent is
+     filled (a solid button, the chosen segment). Dark ink on it is 4.8:1. */
+  --tui-color-fg-on-accent: oklch(0.13 0.03 305);
+  --tui-theme-secondary-strongest: oklch(0.900 0.067 284);
+  --tui-theme-secondary-stronger: oklch(0.820 0.093 284);
+  --tui-theme-secondary-strong: oklch(0.750 0.106 284);
+  --tui-theme-secondary-base: oklch(0.680 0.120 284);
+  --tui-theme-secondary-soft: oklch(0.450 0.080 284);
+  --tui-theme-secondary-subtle: oklch(0.300 0.047 284);
+  --tui-theme-secondary-subtlest: oklch(0.240 0.033 284);
+}
+
+/* Headings in Zodiak, as on the site; body text stays the system face */
+.app-root h1, .app-root h2:not(.tui-text-style-overline), .app__name { font-family: var(--font-display); font-weight: 500; }

@@ -13,7 +13,7 @@ Python 3.12 is fetched by `uv`. Tracing uses potracer (pure Python); native potr
 
 ## The app
 
-`budget-foundry serve <project>` opens the cull view at http://127.0.0.1:8765: every candidate normalised and drawn on the font's guides, the look-alike pairs (Y 4, a 2, S 6, l I 1…) by current default, and a preview line set by HarfBuzz from your picks, alternates off and on. Keyboard first: arrows move, Space keeps, S stars the default, J/K jump characters. Characters you haven't touched show their suggested keepers dashed; the first keystroke on one starts from them. Build font runs the build and lists the checks.
+`budget-foundry serve <project>` opens the cull view at http://127.0.0.1:8765: every candidate normalised and drawn on the font's guides, the look-alike pairs (Y 4, a 2, S 6, l I 1…) by current default, and a preview line set by HarfBuzz from your picks, alternates off and on. Keyboard first: arrows move (up and down between characters), Space keeps, S stars the default; or click a tile's star. Themed after juliacanzani.com (its palette, Zodiak headings), light and dark following the OS. Characters you haven't touched show their suggested keepers dashed; the first keystroke on one starts from them. Build font runs the build and lists the checks.
 
 The UI is React with [Tangible UI](https://www.npmjs.com/package/@tangible/ui), built into the Python package:
 

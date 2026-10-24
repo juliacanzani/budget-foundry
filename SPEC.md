@@ -144,7 +144,7 @@ Cursive is a project mode, not a separate app: the same stages, with joins repla
 A left rail lists the ten stages with their status; the main area is the current stage; a preview strip along the bottom always shows the latest build rendering a test line, with alternates and kerning toggles.
 
 - **Sheets view.** Corrected sheet with segmentation boxes overlaid, coloured by label confidence. Click a box to relabel, merge or split.
-- **Cull view.** One row per character, candidates as SVG tiles on guide lines, sorted by score. Keyboard first: arrow keys move, Space keeps, S stars the default, J and K jump characters. A tally shows characters covered and characters without a default.
+- **Cull view.** One row per character, candidates as SVG tiles on guide lines, sorted by score. Keyboard first: arrow keys move (up and down between characters), Space keeps, S stars the default; each tile also has a star button for the pointer. A tally shows characters covered and characters without a default.
 - **Spacing and kerning view.** Test strings at three sizes beside the scanned original; sliders update the preview within a second by re-spacing in the browser rather than rebuilding.
 - **Build view.** Check results (next section), variant distribution chart from the sample corpus, file sizes, export button.
 - Live parameter preview: every judgement call (smoothing, bounce, weight compensation, spacing targets, kern strength) is a range slider. Dragging re-traces and re-renders only the characters pinned in a focus tray, one to a handful, so the preview lands in about 200 ms; the full rebuild runs on release. Light and dark mode; glyph tiles invert with the theme.
