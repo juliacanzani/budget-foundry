@@ -9,3 +9,4 @@ projects/
 budget-foundry-v0/sources/
 src/budget_foundry/web/
 ui/node_modules/
+*.tsbuildinfo
