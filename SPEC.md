@@ -197,7 +197,33 @@ The build stays deterministic: given the same sources, `decisions.json` and `pro
 2. **Legibility review.** Render each default and each alternate in test words, run OCR (Tesseract) as a deterministic first pass, then ask a vision model about glyphs the OCR misreads or confuses. Known risks: Y/4, a/2, S/6, l/I/1, cursive r/z. Proposes default changes or flags for culling.
 3. **Cull reasons.** For characters with flagged candidates, the model explains outliers in plain language and proposes keepers. The metric scores stay primary; the reasons make overriding them faster.
 4. **Spacing and kerning critique.** Render test strings at 24, 48 and 96 px; the model flags pairs or glyphs that look loose, tight or oversized and proposes override values ("period too large", "T o loose"). Output: kern overrides or per-glyph metric adjustments.
-5. **Test corpus.** Generate words and sentences that exercise problem pairs and the project's languages;
+5. **Test corpus.** Generate words and sentences that exercise problem pairs and the project's languages; stored in `project.toml` as the sample corpus.
+6. **Check diagnosis.** When an automated check fails, an agent reads the build log and check output and proposes a fix: a decision change, or a note for code.
+
+### Two integration paths (build both, MCP first)
+**MCP server (`budget-foundry mcp ./my-font`).** Exposes the project to an external agent (Claude Code, Cowork). That agent runs polish passes on its own and returns a single batch of suggestions. Tools:
+- `list_characters`, `list_candidates(char)`, `get_candidate(id)` (image + metrics)
+- `render(text, size, features)` → PNG
+- `measure(char | pair)` → advance, side gaps, kern value, vertical extremes
+- `run_checks()` → check results
+- `propose(suggestions[])` → writes to `suggestions.json` only
+- `list_suggestions(status)`
+
+No tool writes `decisions.json`; only the UI (or `budget-foundry accept <id>`) does.
+
+**Built-in Claude API.** Optional API key stored in macOS Keychain. Used by the review screens for tasks 1–3, so they work without an external agent. Model is configurable; prompts are versioned in the repo.
+
+### UI
+- Suggestions tray per stage: a list with the reason and confidence, accept and reject buttons, and accept all above a confidence threshold.
+- Before/after preview for each suggestion, using the live preview path.
+- Rejected suggestions are kept, so the same suggestion isn't proposed again unless its inputs change.
+
+### Checks added
+- `build` succeeds with no network and no key.
+- Every decision has a `source`; every `ai` decision has a `reason` and `model`.
+
+### Milestone
+**AI assist.** The MCP server can land any time after Milestone 1, since its tools wrap the CLI. The built-in API and suggestion trays come after Milestone 3. Gate: an external agent, using only the MCP tools, finds and proposes fixes for the Y/4 default and the oversized period on Julia Marker, and accepting them reproduces the current font's choices.
 
 ## Milestones
 
