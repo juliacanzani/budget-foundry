@@ -1,4 +1,9 @@
-"""Stage 10 outputs beyond the font: specimen page, CSS snippet with a size-matched fallback, export."""
+"""Stage 10 outputs beyond the font: specimen page, CSS snippet with a size-matched fallback, export.
+
+The specimen is the TUI page in ui/src/specimen, built to one script and stylesheet
+(`pnpm build` in ui/) and inlined here with the font and its data, so the exported
+specimen is a single file that works offline (Zodiak headings excepted).
+"""
 from __future__ import annotations
 
 import base64
@@ -16,7 +21,8 @@ from .shaping import CORPUS
 # Arial shares Helvetica's advance widths (per 1000 em); used to size-match the fallback.
 ARIAL = dict(zip('abcdefghijklmnopqrstuvwxyz ', [556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833,
                                                    556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 278]))
-DEFAULTS = dict(hero='Handwriting, set in type',
+DEFAULTS = dict(cycling='bookkeeper, Mississippi, aaa eee ooo', kerning='Today, Lately. “Plants.” 1977.',
+                hero='Handwriting, set in type',
                 samples=['The quick brown fox jumped over the lazy dog', 'Notes, drafts & half-finished ideas…',
                          'Hello! Bonjour! Hallo?'],
                 sizes_text='Some thoughts on making things by hand, & why they’re worth it.')
@@ -46,29 +52,45 @@ def css(p, woff2_name: str, tt: TTFont) -> str:
             f'/* font-family: "{fam}", "{fam} Fallback", cursive; */\n')
 
 
-def page(p, tt: TTFont, woff2: Path) -> str:
+def bundle_dir() -> Path:
+    return Path(str(resources.files('budget_foundry') / 'web' / 'specimen'))
+
+
+def specimen_data(p, tt: TTFont) -> dict:
     s = _settings(p); cmap = tt.getBestCmap(); order = set(tt.getGlyphOrder())
     chars = [c for c in ORDER if ord(c) in cmap] + [c for c in p.charset.get('derived', {}) if ord(c) in cmap and c not in ORDER]
     chars += [chr(cp) for cp in sorted(cmap) if chr(cp) not in chars and cp > 32 and cp != 0xA0]
-    cells = []
+    grid = []
     for c in chars:
         base = cmap[ord(c)]
-        n = 1 + sum(1 for s_ in range(1, 4) if f'{base}.alt{s_}' in order)
-        feats = ["'calt' 0"] + [f"'calt' 0, 'ss0{s_}' 1" for s_ in range(1, n)]
-        spans = ''.join(f'<span class="v" style="font-feature-settings:{f}">{html.escape(c)}</span>' for f in feats)
-        cells.append(f'<div class="cell"><div class="vs">{spans}</div><div class="cp">U+{ord(c):04X}</div></div>')
+        grid.append(dict(char=c, codepoint=f'U+{ord(c):04X}', variants=1 + sum(1 for n in range(1, 4) if f'{base}.alt{n}' in order)))
     missing = [chr(cp) for cp in range(0x21, 0x7F) if cp not in cmap]
     accents = any(cp >= 0xC0 and chr(cp).isalpha() for cp in cmap)
     gaps = ' '.join(missing) + (' and accented letters' if not accents else '')
-    fallback = (f'{html.escape(gaps.strip())} fall back to the next font in your stack.' if gaps.strip()
-                else 'Every printable ASCII character is covered.')
-    t = (resources.files('budget_foundry') / 'templates' / 'specimen.html').read_text()
-    for k, v in {'__FAMILY__': html.escape(p.config['name']), '__HERO__': html.escape(s['hero']),
-                 '__WOFF2__': base64.b64encode(woff2.read_bytes()).decode(), '__GRID__': ''.join(cells),
-                 '__SAMPLES__': _js(s['samples']), '__SIZES__': _js(s['sizes_text']),
-                 '__FALLBACK__': fallback}.items():
-        t = t.replace(k, v)
-    return t
+    return dict(family=p.config['name'], version=p.config.get('font_version', '1.000'), glyphs=len(tt.getGlyphOrder()),
+                hero=s['hero'], samples=s['samples'], sizesText=s['sizes_text'], cycling=s['cycling'], kerning=s['kerning'],
+                grid=grid, fallback=f'{gaps.strip()} fall back to the next font in your stack.' if gaps.strip() else '')
+
+
+def page(p, tt: TTFont, woff2: Path) -> str:
+    """One self-contained HTML file: the TUI specimen bundle, the font and its data inlined."""
+    d = bundle_dir()
+    if not (d / 'specimen.js').exists():
+        raise FileNotFoundError('the specimen page is not built: run `pnpm install && pnpm build` in ui/')
+    fam = p.config['name']
+    font = base64.b64encode(woff2.read_bytes()).decode()
+    script = (d / 'specimen.js').read_text().replace('</script', '<\\/script')
+    css = (d / 'specimen.css').read_text().replace('</style', '<\\/style')
+    return (
+        '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f'<title>{html.escape(fam)} · specimen</title>\n'
+        '<link rel="preconnect" href="https://api.fontshare.com" crossorigin>\n'
+        '<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&display=swap">\n'
+        f'<style>@font-face{{font-family:{json.dumps(fam)};src:url(data:font/woff2;base64,{font}) format("woff2");font-display:block}}</style>\n'
+        f'<style>{css}</style>\n</head>\n<body>\n<div id="root"></div>\n'
+        f'<script type="application/json" id="specimen-data">{_js(specimen_data(p, tt))}</script>\n'
+        f'<script>{script}</script>\n</body>\n</html>\n')
 
 
 def _js(v) -> str:

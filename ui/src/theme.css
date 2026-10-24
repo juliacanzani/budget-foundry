@@ -96,5 +96,5 @@
   --bf-star: oklch(0.870 0.170 92);                  /* yellow: 10:1 on the lilac */
 }
 
-/* Headings in Zodiak, as on the site; body text stays the system face */
-.app-root h1, .app-root h2:not(.tui-text-style-overline), .app__name { font-family: var(--font-display); font-weight: 500; }
+/* Headings in Zodiak, as on the site (app and specimen); body text stays the system face */
+.tui-interface :is(h1, h2:not(.tui-text-style-overline)), .app__name { font-family: var(--font-display); font-weight: 500; }

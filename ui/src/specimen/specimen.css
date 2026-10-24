@@ -1,0 +1,25 @@
+/* The specimen page. Layout only; colour and type come from TUI tokens and the site theme. */
+html, body { margin: 0; }
+.specimen { min-height: 100vh; background: var(--tui-color-bg); color: var(--tui-color-fg); }
+.specimen__bar {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--tui-spacing-md);
+  max-width: 72rem; margin: 0 auto; padding: var(--tui-spacing-xl) var(--tui-spacing-lg) var(--tui-spacing-md);
+}
+.specimen__bar h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); }
+.specimen__meta { margin: var(--tui-spacing-xxs) 0 0; color: var(--tui-color-fg-muted); }
+.specimen__main { max-width: 72rem; margin: 0 auto; padding: 0 var(--tui-spacing-lg) var(--tui-spacing-xxl); display: grid; gap: var(--tui-spacing-xl); }
+.specimen__main h2 { margin: 0 0 var(--tui-spacing-sm); font-size: 1.25rem; }
+.specimen__main > * { min-width: 0; }   /* grid items default to their content's width */
+.specimen__hero { width: 100%; box-sizing: border-box; line-height: 1.15; overflow-wrap: break-word; padding: var(--tui-spacing-sm) var(--tui-spacing-md); }
+.specimen__controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tui-spacing-md) var(--tui-spacing-lg); margin-block-start: var(--tui-spacing-md); }
+.specimen__size { display: flex; align-items: center; gap: var(--tui-spacing-sm); min-width: 16rem; }
+.specimen__size .tui-slider { flex: 1; }
+.specimen__size output { font-variant-numeric: tabular-nums; color: var(--tui-color-fg-secondary); min-width: 3.5em; }
+.specimen__sizes p { margin: 0 0 var(--tui-spacing-xs); line-height: 1.15; overflow-wrap: break-word; }
+.specimen__px { font-family: var(--tui-font-family-sans, system-ui); font-size: 0.75rem; color: var(--tui-color-fg-muted); vertical-align: middle; font-feature-settings: normal; }
+.specimen__compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--tui-spacing-md); }
+.specimen__caption { margin: 0; font-size: 0.875rem; color: var(--tui-color-fg-muted); }
+.specimen__line { margin: var(--tui-spacing-xxs) 0 0; font-size: 2.75rem; line-height: 1.15; }
+.specimen__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--tui-spacing-sm); }
+.specimen__variants { display: flex; gap: var(--tui-spacing-sm); font-size: 3rem; line-height: 1.3; }
+.specimen__cp { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-variant-numeric: tabular-nums; }

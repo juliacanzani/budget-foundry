@@ -84,3 +84,17 @@ def test_baseline_nudge_makes_build_stale(project):
         assert dict(pipeline.status(project))['segment'] == 'done'
     finally:
         d['overrides']['baseline'].pop('x'); project.save_decisions(d)
+
+
+@pytest.mark.skipif(not (ROOT / 'src' / 'budget_foundry' / 'web' / 'specimen' / 'specimen.js').exists(),
+                    reason='UI not built (pnpm build in ui/)')
+def test_specimen_is_one_self_contained_file(project):
+    import json, re
+    from budget_foundry import specimen
+    page, css = specimen.write(project)
+    html = page.read_text()
+    assert 'data:font/woff2;base64,' in html and '<script src=' not in html
+    data = json.loads(re.search(r'<script type="application/json" id="specimen-data">(.*?)</script>', html, re.S).group(1))
+    assert data['family'] == 'Julia Marker' and len(data['grid']) == 104
+    assert {g['char']: g['variants'] for g in data['grid']}['o'] == 4
+    assert 'Julia Marker Fallback' in css.read_text()

@@ -1,5 +1,5 @@
 import { IconButton, Tooltip } from '@tangible/ui';
-import type { Mode } from './main';
+import type { Mode } from './theme';
 
 const NEXT: Record<Mode, Mode> = { light: 'dark', dark: 'system', system: 'light' };
 const NAME: Record<Mode, string> = { light: 'Light', dark: 'Dark', system: 'System' };

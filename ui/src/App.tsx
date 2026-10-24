@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Notice } from '@tangible/ui';
-import { systemTheme, type Mode } from './main';
+import { systemTheme, type Mode } from './theme';
 import { ThemeButton, themeLabel } from './ThemeButton';
 import { api, type BuildResult as Result } from './api';
 import { BuildResult } from './BuildResult';

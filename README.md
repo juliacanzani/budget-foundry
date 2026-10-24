@@ -66,7 +66,7 @@ uv run budget-foundry build projects/julia-marker
 | `build <project>` | Stages 4–10, then checks. Runs stale upstream stages first |
 | `check <project>` | Automated checks; exit 1 on failure |
 | `render <project> "line" …` | HarfBuzz render to PNG |
-| `specimen <project>` | Specimen page and CSS snippet with a size-matched fallback |
+| `specimen <project>` | Specimen page (one self-contained HTML file, the TUI page from `ui/src/specimen` with the font inlined) and a CSS snippet with a size-matched fallback |
 | `export <project> [--to dir]` | WOFF2, CSS and specimen to `export_to`; blocked by failing checks |
 
 ## A project
