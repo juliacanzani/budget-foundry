@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, IconButton, SegmentedControl, Switch, Tooltip, TooltipProvider } from '@tangible/ui';
+import { StarFill, StarOutline } from '@tangible/ui/icons/system/index.js';
 import { api, type Glyph } from './api';
 import { GlyphArt, type Frame } from './GlyphArt';
 
@@ -222,7 +223,7 @@ export function CullView({ glyphs, frame, announce }: Props) {
                         <Tooltip.Trigger asChild>
                           <IconButton
                             className="tile__star"
-                            icon={isDefault ? 'system/star-fill' : 'system/star-outline'}
+                            icon={isDefault ? StarFill : StarOutline}
                             label="Default"
                             aria-pressed={isDefault}
                             variant="ghost"

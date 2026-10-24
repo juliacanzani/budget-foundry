@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Button, Icon, Notice } from '@tangible/ui';
+import { AlertTriangle, CheckCircleFill, CloseCircleFill, Download, ExternalLink } from '@tangible/ui/icons/system/index.js';
 import { api, type BuildResult as Result, type Check } from './api';
 
-const ICON = { pass: 'system/check-circle-fill', warn: 'system/alert-triangle', fail: 'system/close-circle-fill' } as const;
+const ICON = { pass: CheckCircleFill, warn: AlertTriangle, fail: CloseCircleFill } as const;
 const WORD = { pass: 'Passed', warn: 'Warning', fail: 'Failed' } as const;
 const ORDER = { fail: 0, warn: 1, pass: 2 } as const;
 
@@ -62,9 +63,9 @@ export function BuildResult({ result, error, onDismiss }: { result: Result | nul
               : 'Next: look it over in the specimen, then download the font, or set export_to in project.toml to send it straight to your site.'}
         </p>
         <div className="build-result__actions">
-          <Button size="sm" theme="primary" label="Open specimen" rightIconName="system/external-link"
+          <Button size="sm" theme="primary" label="Open specimen" rightIconName={ExternalLink}
             href={file(result.files.specimen)} target="_blank" />
-          <Button size="sm" variant="outline" label="Download WOFF2" leftIconName="system/download" href={file(result.files.woff2)} />
+          <Button size="sm" variant="outline" label="Download WOFF2" leftIconName={Download} href={file(result.files.woff2)} />
           {result.export_to && (
             <Button size="sm" variant="outline" label="Export" disabled={failed.length > 0} loading={exporting} loadingLabel="Exporting" onClick={doExport} />
           )}

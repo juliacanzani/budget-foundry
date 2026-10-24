@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@tangible/ui':
-        specifier: 0.2.29
-        version: 0.2.29(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: 0.2.30
+        version: 0.2.30(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-query':
         specifier: ^5.90.0
         version: 5.104.5(@types/react@19.2.8)(react@19.2.3)
@@ -537,8 +537,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tangible/ui@0.2.29':
-    resolution: {integrity: sha512-0ZPozbP72FKDcGqwtw7fl0/ke8O9XGFS+hzuVp2n+Lh7ol6SCqHUK/R+jLdcopT+hfhplecGwoBqn43QTcsW5g==}
+  '@tangible/ui@0.2.30':
+    resolution: {integrity: sha512-GL5PPUxqOtu4v7qxvdGiNBDNcfW33tPJUaBvcumen2Vr8ROWIzEgk+bqtyWsqa7XhT4tY2HCZDWt98DD97r6DQ==}
     peerDependencies:
       react: '>=18.0.0'
       react-dom: '>=18.0.0'
@@ -1456,7 +1456,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tangible/ui@0.2.29(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@tangible/ui@0.2.30(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@floating-ui/react': 0.27.20(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-table': 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

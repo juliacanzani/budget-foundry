@@ -162,5 +162,6 @@ html, body { margin: 0; }
   --tui-button-fg-interact: var(--purple-900);
 }
 
-.theme-button { display: inline-flex; }
-.theme-tooltip { max-width: none; white-space: nowrap; }   /* one line: it names the mode */
+/* Tooltips are portalled to the body, so the width goes on the root. Room for the
+   theme button's label on one line; shorter tooltips still size to their text. */
+:root { --tui-tooltip-max-width: 20rem; }
