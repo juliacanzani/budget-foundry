@@ -167,6 +167,38 @@ Every build runs these; a failure blocks export but not preview. Each one maps t
 | Collisions | No kerned pair has ink overlap in the test corpus | — |
 | Size | WOFF2 under 80 KB, warn above | — |
 
+## AI assist
+
+The build stays deterministic: given the same sources, `decisions.json` and `project.toml`, it produces the same font every time and never calls a model. AI only proposes changes to decisions. Each proposal is shown as a diff, accepted or rejected per item, and once accepted it becomes an ordinary decision. Off by default.
+
+### Principles
+- **Proposals, not writes.** AI output lands in `suggestions.json`, never in `decisions.json` directly. Accepting a suggestion copies it into `decisions.json` with provenance.
+- **Provenance on every decision.** `source: "human" | "ai" | "auto"`, plus `reason` and `model` for AI decisions. The cull and kerning views show a small AI marker on accepted suggestions.
+- **Cached and replayable.** Requests are keyed by a hash of (stage, inputs, prompt version, model). Reruns read from the cache; "re-ask" is explicit.
+- **Never in the build path.** `budget-foundry build` must succeed offline with no API key.
+
+### Suggestion record
+```json
+{
+  "id": "sug_7f3a",
+  "stage": "label | cull | default | kern | space | legibility | metrics",
+  "target": { "candidate": "c_91b2e0", "char": "Y" },
+  "proposal": { "op": "set_default", "value": "c_91b2e0" },
+  "reason": "Variant 2 has the most closed arms; variants 1 and 3 read as '4' at 24 px.",
+  "confidence": 0.7,
+  "model": "claude-sonnet-...",
+  "created": "2026-10-24T18:02:00Z",
+  "status": "pending | accepted | rejected"
+}
+```
+
+### Assist tasks, in priority order
+1. **Label freeform and non-template sheets.** A vision model reads a sheet or row crop and proposes the label string per row, with skips marked. The human confirms in the sheets view. Highest value: it removes the most manual step.
+2. **Legibility review.** Render each default and each alternate in test words, run OCR (Tesseract) as a deterministic first pass, then ask a vision model about glyphs the OCR misreads or confuses. Known risks: Y/4, a/2, S/6, l/I/1, cursive r/z. Proposes default changes or flags for culling.
+3. **Cull reasons.** For characters with flagged candidates, the model explains outliers in plain language and proposes keepers. The metric scores stay primary; the reasons make overriding them faster.
+4. **Spacing and kerning critique.** Render test strings at 24, 48 and 96 px; the model flags pairs or glyphs that look loose, tight or oversized and proposes override values ("period too large", "T o loose"). Output: kern overrides or per-glyph metric adjustments.
+5. **Test corpus.** Generate words and sentences that exercise problem pairs and the project's languages;
+
 ## Milestones
 
 Each milestone is usable on its own; the gate is what has to be true before starting the next.
