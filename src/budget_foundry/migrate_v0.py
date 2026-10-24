@@ -86,6 +86,8 @@ def migrate(v0: Path, dest: Path, sources: Path | None = None, log=print) -> Pro
     text = Template((tpl / 'project.toml').read_text()).substitute(name='Julia Marker', vendor='TNGB', sheets=toml_sheets(V0_SHEETS))
     # v0 measured the x-height used to hang the q rows on sheet A only
     text = text.replace('# xheight_sheets = ["A"]', 'xheight_sheets = ["A"]')
+    # v0 normalised against the kept glyphs only; keep that so the font reproduces
+    text = text.replace('reference = "candidates"', 'reference = "kept"      # v0: statistics from the kept glyphs, at build time', 1)
     text += V0_SPECIMEN
     (dest / 'project.toml').write_text(text)
     shutil.copy2(tpl / 'charset.toml', dest / 'charset.toml')

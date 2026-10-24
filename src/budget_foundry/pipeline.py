@@ -11,6 +11,9 @@ def status(p: Project) -> list[tuple[str, str]]:
         d = p.sheet_dir(k)
         rows.append((f'import {k}', _state(p, d, imaging.stage_fp(p, k))))
     rows.append(('segment', _state(p, p.candidates_dir, segment.stage_fp(p))))
+    if build.by_reference(p):
+        rows.append(('normalise', _state(p, build.normalised_path(p).parent, build.normalise_fp(p))
+                     if p.candidates_dir.exists() else 'not run'))
     rows.append(('build', _state(p, p.build_dir, build.stage_fp(p)) if p.candidates_dir.exists() else 'not run'))
     return rows
 
@@ -33,8 +36,14 @@ def run_segment(p: Project, force=False, log=print):
     return p.stage_record(p.candidates_dir).get('problems', [])
 
 
-def run_build(p: Project, force=False, log=print):
+def run_normalise(p: Project, force=False, log=print):
     run_segment(p, log=log)
+    if build.by_reference(p) and (force or not p.is_fresh(build.normalised_path(p).parent, build.normalise_fp(p))):
+        log('normalise'); build.run_normalise(p, log)
+
+
+def run_build(p: Project, force=False, log=print):
+    run_normalise(p, log=log)
     if force or not p.is_fresh(p.build_dir, build.stage_fp(p)):
         log('build'); build.run(p, log)
         log('check'); return checks.run(p)

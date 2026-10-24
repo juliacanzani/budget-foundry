@@ -50,6 +50,9 @@ space = 260
 "&" = 720
 
 [normalise]
+# Every candidate is normalised against all candidates of its character before culling,
+# so the cull view shows what the font gets. ("kept" = v0: only the kept ones, at build.)
+reference = "candidates"
 height_variation = 0.5    # keep this power of each glyph's size ratio to its class median
 scale_min = 0.55
 scale_max = 1.7
