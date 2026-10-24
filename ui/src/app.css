@@ -20,7 +20,8 @@ html, body { margin: 0; }
   padding: var(--tui-spacing-sm) var(--tui-spacing-lg);
   border-bottom: 1px solid var(--tui-color-border);
 }
-.app__name { margin: 0; font-weight: 600; }
+.app__name { margin: 0; font-weight: 600; margin-inline-end: auto; }
+.app__bar > * + * { margin-inline-start: var(--tui-spacing-md); }
 .app__product { color: var(--tui-color-fg-muted); font-weight: 400; margin-inline-end: var(--tui-spacing-xs); }
 .app__main { grid-area: main; padding: var(--tui-spacing-lg); display: grid; gap: var(--tui-spacing-lg); align-content: start; }
 .app__preview {
@@ -49,7 +50,7 @@ html, body { margin: 0; }
 .glyph-art { display: block; overflow: visible; }
 .glyph-art__ink { fill: currentColor; }
 .glyph-art__guides line { stroke: var(--tui-color-border); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
-.glyph-art__guides line.is-baseline { stroke: var(--tui-theme-info-soft); stroke-dasharray: none; }
+.glyph-art__guides line.is-baseline { stroke: var(--tui-theme-primary-soft); stroke-dasharray: none; }
 
 /* look-alikes */
 .lookalikes h2, .preview h2 { margin: 0 0 var(--tui-spacing-xs); }
@@ -84,18 +85,19 @@ html, body { margin: 0; }
 .cull__count { font-size: 0.8125rem; color: var(--tui-color-fg-secondary); }
 .cull__tiles { display: flex; flex-wrap: wrap; gap: var(--tui-spacing-xs); align-items: flex-start; }
 
+.tile-cell { display: grid; justify-items: center; gap: var(--tui-spacing-xxs); }
 .tile {
   position: relative; display: grid;
   background: var(--tui-color-bg-surface);
-  border: 1px solid var(--tui-color-border-control); border-radius: var(--tui-radius-md);
+  border: 1px solid var(--bf-tile-border); border-radius: var(--tui-radius-md);
 }
-.tile:hover { border-color: var(--tui-color-fg-muted); }
+.tile:hover { border-color: var(--bf-tile-border-kept); }
 .tile:has(.tile__toggle:focus-visible) { outline: 3px solid var(--tui-color-focus-ring); outline-offset: 2px; }
-.tile[data-kept] { background: var(--tui-theme-primary-subtlest); border-color: var(--tui-theme-primary-base); box-shadow: inset 0 0 0 1px var(--tui-theme-primary-base); }
+.tile[data-kept] { background: var(--bf-tile-fill-kept); border-color: var(--bf-tile-border-kept); box-shadow: inset 0 0 0 1px var(--bf-tile-border-kept); }
 .tile[data-tentative] { background: var(--tui-color-bg-surface); box-shadow: none; border-style: dashed; }
 .tile__toggle {
-  display: grid; justify-items: center; gap: 2px; min-width: 3rem;
-  padding: var(--tui-spacing-lg) var(--tui-spacing-xs) var(--tui-spacing-xs);
+  display: grid; justify-items: center; min-width: 3rem;
+  padding: var(--tui-spacing-sm) var(--tui-spacing-xs) var(--tui-spacing-xs);
   font: inherit; color: var(--tui-color-fg); cursor: pointer;
   background: none; border: 0; border-radius: inherit;
 }
@@ -104,9 +106,10 @@ html, body { margin: 0; }
 .tile__art img { display: block; width: auto; }
 [data-theme='dark'] .tile__art img { filter: invert(1); }
 .tile__star { position: absolute; inset-block-start: 1px; inset-inline-end: 1px; }
-.tile:not([data-kept]) .tile__star:not(:hover) { opacity: 0.55; }
-.tile__star[aria-pressed='true'] { color: var(--tui-theme-primary-base); opacity: 1; }
-.tile__flags { font-size: 0.6875rem; line-height: 1.2; color: var(--tui-theme-danger-stronger); max-width: 7.5rem; text-align: center; min-height: 0.8rem; }
+.tile:not([data-kept]) .tile__star:not(:hover) { opacity: 0.6; }
+.tile__star[aria-pressed='true'] { color: var(--bf-star); opacity: 1; }
+.tile__star[aria-pressed='true']:not(:hover) { background: none; }   /* the yellow says it; no pressed fill */
+.tile__flags { font-size: 0.6875rem; padding-inline: var(--tui-spacing-xxs); line-height: 1.2; color: var(--tui-theme-danger-stronger); max-width: 7.5rem; text-align: center; min-height: 0.8rem; }
 
 /* preview */
 .preview { display: grid; grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr); gap: var(--tui-spacing-lg); align-items: start; }
@@ -146,3 +149,15 @@ html, body { margin: 0; }
 
 /* Button-as-link: no underline, as on the button form */
 .build-result__actions a.tui-button { text-decoration: none; }
+
+/* Dark mode's solid primary button on the lighter purple: on the mid purple, dark ink
+   passes (4.8:1) but reads as disabled. purple-200 with purple-900 text is 6.2:1,
+   purple-100 on hover 10.6:1. (Solid is the default variant: no is-style class.) */
+[data-theme='dark'] .tui-button.is-theme-primary:is(.is-style-solid, :not([class*='is-style-'])) {
+  --tui-button-bg: var(--purple-200);
+  --tui-button-border: var(--purple-200);
+  --tui-button-fg: var(--purple-900);
+  --tui-button-bg-interact: var(--purple-100);
+  --tui-button-border-interact: var(--purple-100);
+  --tui-button-fg-interact: var(--purple-900);
+}

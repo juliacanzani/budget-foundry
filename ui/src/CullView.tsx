@@ -189,7 +189,8 @@ export function CullView({ glyphs, frame, announce }: Props) {
                   const kept = keep.includes(c.id);
                   const isDefault = c.id === def && kept;
                   return (
-                    <div key={c.id} className="tile" data-kept={kept || undefined} data-tentative={(!decided && kept) || undefined}>
+                    <div key={c.id} className="tile-cell">
+                    <div className="tile" data-kept={kept || undefined} data-tentative={(!decided && kept) || undefined}>
                       <button
                         ref={(el) => { if (el) tiles.current.set(c.id, el); else tiles.current.delete(c.id); }}
                         type="button"
@@ -207,14 +208,11 @@ export function CullView({ glyphs, frame, announce }: Props) {
                             <GlyphArt path={c.path} advance={c.advance} frame={frame} height={TILE_HEIGHT} />
                           )}
                         </span>
-                        <span className="tile__meta">
-                          <span className="tui-visually-hidden">
-                            Candidate {ci + 1} of {g.candidates.length}
-                            {isDefault ? ', default' : ''}
-                            {!decided && kept ? ', suggested' : ''}
-                            {c.flags.length ? ', ' : ''}
-                          </span>
-                          <span className="tile__flags">{c.flags.join(', ')}</span>
+                        <span className="tui-visually-hidden">
+                          Candidate {ci + 1} of {g.candidates.length}
+                          {isDefault ? ', default' : ''}
+                          {!decided && kept ? ', suggested' : ''}
+                          {c.flags.length ? `, ${c.flags.join(', ')}` : ''}
                         </span>
                       </button>
                       {/* The pointer's way to star a default; the keyboard's is S on the tile. Out of the
@@ -225,7 +223,7 @@ export function CullView({ glyphs, frame, announce }: Props) {
                             className="tile__star"
                             icon={isDefault ? 'system/star-fill' : 'system/star-outline'}
                             label="Default"
-                            pressed={isDefault}
+                            aria-pressed={isDefault}
                             variant="ghost"
                             size="xs"
                             tabIndex={-1}
@@ -236,6 +234,9 @@ export function CullView({ glyphs, frame, announce }: Props) {
                           {isDefault ? `The default ${g.char}` : `Make this ${g.char} the default`} · <kbd>S</kbd>
                         </Tooltip.Content>
                       </Tooltip>
+                    </div>
+                    {/* In the toggle's name already; shown under the box for the eye */}
+                    {c.flags.length > 0 && <span className="tile__flags" aria-hidden="true">{c.flags.join(', ')}</span>}
                     </div>
                   );
                 })}
