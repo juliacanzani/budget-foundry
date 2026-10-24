@@ -80,6 +80,6 @@ Delete any derived folder and the next command rebuilds it. Each one holds a `_s
 
 Candidate IDs are a hash of the source file's content and the glyph's bounding box, so re-segmenting a row doesn't renumber anything else.
 
-## Not in Milestone 1
+## Not yet
 
 Harvesting glyphs from the words page and the marks page (M6), the drag-the-corners review screen (M3; flags for now), normalised tiles before culling and the React cull view (M3), sliders and the focus tray (M4), Tauri (M5), composites, ligatures and the asset pack (M6), cursive (M7).
