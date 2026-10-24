@@ -9,6 +9,7 @@ const kindOf = (ch: string): Exclude<Kind, 'all'> =>
   /\p{L}/u.test(ch) ? 'letters' : /\p{N}/u.test(ch) ? 'figures' : 'punctuation';
 
 const TILE_HEIGHT = 104;
+const TILE_MIN_ART = 48;   // the 64px tile minus its xs (8px) side padding
 
 type Props = { glyphs: Glyph[]; frame: Frame; announce: (msg: string) => void };
 
@@ -205,7 +206,7 @@ export function CullView({ glyphs, frame, announce }: Props) {
                           {showSource ? (
                             <img src={api.sourceTile(c.id)} alt="" height={TILE_HEIGHT} />
                           ) : (
-                            <GlyphArt path={c.path} advance={c.advance} frame={frame} height={TILE_HEIGHT} />
+                            <GlyphArt path={c.path} advance={c.advance} frame={frame} height={TILE_HEIGHT} minWidth={TILE_MIN_ART} />
                           )}
                         </span>
                         <span className="tui-visually-hidden">
