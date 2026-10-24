@@ -2,6 +2,8 @@
 // in one registry object, so a bundler can't drop the 250-odd unused icons (~100 kB);
 // vite.specimen.config.ts swaps this module in for it. An icon missing here renders
 // nothing and warns in the console, so add any new one the specimen starts using.
+// Upstream fix accepted (components import their own glyphs; Icon takes icon={Component}):
+// drop this file and the alias once it's in a released version.
 import { Check, ChevronRight, Close, ExternalLink, MoonOutline, SunOutline } from '@tangible/ui/icons/system/index.js';
 
 export const iconRegistry = {

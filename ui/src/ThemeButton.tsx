@@ -12,6 +12,8 @@ export const themeLabel = (mode: Mode, resolved: 'light' | 'dark') =>
  * theme the device resolved to, and the label says so. The tooltip hangs off a wrapper,
  * not the button: TUI's Tooltip sets aria-describedby on its trigger, and with the same
  * text as the label that would be read twice. Focus still opens it, by bubbling.
+ * Upstream fix accepted (Tooltip type="label", and IconButton showTooltip using it):
+ * drop the wrapper for that once it's in a released version.
  */
 export function ThemeButton({ mode, resolved, onChange }: { mode: Mode; resolved: 'light' | 'dark'; onChange: (m: Mode) => void }) {
   const label = themeLabel(mode, resolved);
