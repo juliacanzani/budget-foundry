@@ -238,6 +238,24 @@ Each milestone is usable on its own; the gate is what has to be true before star
 6. **Families, drawn mode, composites, ligatures and the asset pack.** Multiple projects, merge and break-out, marks sheet and accented letters, ligatures from the words page and the optional ligature page. Gate: a two-style family renders French text without fallback.
 7. **Cursive mode.** Join templates, join-zone cutting, join normalisation, entry-variant `calt`, initial and final forms. Gate: a paragraph in your cursive sets with no visible seams at 96 px in Chrome and Safari.
 
+## Backlog
+
+Not yet in a milestone, or follow-ups from using it. Newest asks first within each group.
+
+**Template and charset options.** What changes the font lives in `project.toml` or `charset.toml` and the template follows from it; writing aids live under `[template]`. Every new guide shape goes into the saved layout, so import can remove it and old printouts still import.
+- [ ] **Monospace.** `[metrics] advance` in font units; unset means proportional. The template draws one cell per copy (cell width from cap height × advance ÷ cap), which also lets segmentation group by cell. The build sets every advance to it, centres each glyph, turns kerning off, and warns on a glyph wider than its cell. Its own project (e.g. Digital Marker Mono) rather than a switch, since mono letters are written differently; families (Milestone 6) group them.
+- [ ] Character sets to opt into (`sets = ["basic", "symbols", "currency"]`) instead of editing the `drawn` string.
+- [ ] Accents to opt into (`marks = true` or a named set such as Latin-1): the marks sheet and composites from Milestone 6.
+- [ ] Ligatures to include (`[ligatures] pairs`): the ligature page from Milestone 6.
+- [ ] Extra writing guides (`[template.guides]`): a crossbar line, aperture ellipses for round letters.
+
+**From the first real font (Digital Marker, October 2026).**
+- [ ] Words-page harvesting: the page is kept for reference only; spacing and ligature candidates come from it later.
+
+**Upstream (Tangible UI).**
+- [ ] Drawer heading back to `Sidebar.Header` once TUI PR #158 is released (it makes Header and Footer plain `div`s).
+- [ ] Once TUI's StepIndicator branch ships: move the stage list to non-interactive `StepList`, drop the `--bf-ring` override for the track token, and use `attention` for stale stages instead of the ContentIndicator.
+
 ## Open questions and assumptions
 
 **Assumptions**
