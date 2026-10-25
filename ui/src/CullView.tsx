@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, IconButton, SegmentedControl, Switch, Tooltip, TooltipProvider } from '@tangible/ui';
-import { StarFill, StarOutline } from '@tangible/ui/icons/system/index.js';
+import { Check, StarFill, StarOutline } from '@tangible/ui/icons/system/index.js';
 import { api, type Glyph } from './api';
+import { startingKeep, useDecisions } from './decisions';
 import { GlyphArt, type Frame } from './GlyphArt';
 
 type Kind = 'all' | 'letters' | 'figures' | 'punctuation';
@@ -10,92 +10,36 @@ const kindOf = (ch: string): Exclude<Kind, 'all'> =>
   /\p{L}/u.test(ch) ? 'letters' : /\p{N}/u.test(ch) ? 'figures' : 'punctuation';
 
 const TILE_HEIGHT = 104;
+const hasCorrections = (c: { baseline: number; rotate: number; scale: number; weight: number }) =>
+  c.baseline !== 0 || c.rotate !== 0 || c.scale !== 1 || c.weight !== 0;
 const TILE_MIN_ART = 48;   // the 64px tile minus its xs (8px) side padding
 
-type Props = { glyphs: Glyph[]; frame: Frame; maxKeep: number; announce: (msg: string) => void };
+type Props = {
+  glyphs: Glyph[]; frame: Frame; maxKeep: number; announce: (msg: string) => void;
+  active: string | null; onActive: (id: string | null) => void;
+  /** Open the focused candidate in the inspector: Enter, or a click on a phone. */
+  onInspect: (id: string, how: 'pointer' | 'keyboard') => void;
+};
 
 /**
  * One row per character, every candidate normalised and drawn on the guides.
- * Keyboard: arrows move (up and down between characters), Space keeps, S stars the default.
+ * Focus and keeping are separate: a tile takes focus (and fills the inspector) on a
+ * click or the arrows; keeping is Space or the tile's check, the default is S or its star.
  * One tab stop for the whole list (roving focus); the shortcuts only act on a
  * focused tile, so they never fire while typing elsewhere.
  */
-export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
-  const qc = useQueryClient();
+export function CullView({ glyphs, frame, maxKeep, announce, active, onActive: setActive, onInspect }: Props) {
   const [kind, setKind] = useState<Kind>('all');
   const [onlyUndecided, setOnlyUndecided] = useState(false);
   const [showSource, setShowSource] = useState(false);
-  const [active, setActive] = useState<string | null>(null);
   const tiles = useRef(new Map<string, HTMLButtonElement>());
+  const { toggleKeep: toggle, makeDefault: star, keepSuggested } = useDecisions(maxKeep, announce);
 
   const visible = useMemo(
     () => glyphs.filter((g) => (kind === 'all' || kindOf(g.char) === kind) && (!onlyUndecided || g.keep.length === 0)),
     [glyphs, kind, onlyUndecided],
   );
   const undecided = glyphs.filter((g) => g.keep.length === 0 && g.candidates.length > 0);
-
-  const choose = useMutation({
-    mutationFn: ({ char, keep, def }: { char: string; keep: string[]; def: string | null }) => api.choose(char, keep, def),
-    onMutate: async ({ char, keep, def }) => {
-      await qc.cancelQueries({ queryKey: ['glyphs'] });
-      const before = qc.getQueryData<Glyph[]>(['glyphs']);
-      qc.setQueryData<Glyph[]>(['glyphs'], (gs) =>
-        gs?.map((g) => (g.char === char ? { ...g, keep, default: keep.length ? def ?? keep[0] : null, source: 'human' } : g)),
-      );
-      return { before };
-    },
-    onError: (err, _vars, ctx) => {
-      if (ctx?.before) qc.setQueryData(['glyphs'], ctx.before);
-      announce(`Not saved: ${err instanceof Error ? err.message : String(err)}`);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['glyphs'] });
-      qc.invalidateQueries({ queryKey: ['preview'] });
-      qc.invalidateQueries({ queryKey: ['project'] });
-    },
-  });
-
-  const describe = (g: Glyph, keep: string[], def: string | null) => {
-    if (!keep.length) return `${g.char}: nothing kept`;
-    const n = g.candidates.findIndex((c) => c.id === def) + 1;
-    return `${g.char}: ${keep.length} kept, default is candidate ${n}`;
-  };
-
-  const save = (g: Glyph, keep: string[], def: string | null) => {
-    const d = keep.length ? (def && keep.includes(def) ? def : keep[0]) : null;
-    choose.mutate({ char: g.char, keep, def: d });
-    announce(describe(g, keep, d));
-  };
-
-  // Undecided characters start from the suggestions the moment you touch them.
-  const startingKeep = (g: Glyph) => (g.keep.length ? g.keep : g.candidates.filter((c) => c.suggested).map((c) => c.id));
-
-  const toggle = (g: Glyph, id: string) => {
-    const keep = startingKeep(g);
-    if (!keep.includes(id) && keep.length >= maxKeep) {
-      announce(`${g.char} already has ${maxKeep} kept, the most the font can cycle. Unkeep one first.`);
-      return;
-    }
-    const next = keep.includes(id) ? keep.filter((k) => k !== id) : [...keep, id];
-    save(g, next, g.keep.length ? g.default : next[0] ?? null);
-  };
-
-  const star = (g: Glyph, id: string) => {
-    const keep = startingKeep(g);
-    if (!keep.includes(id) && keep.length >= maxKeep) {
-      announce(`${g.char} already has ${maxKeep} kept, the most the font can cycle. Unkeep one to make this the default.`);
-      return;
-    }
-    save(g, keep.includes(id) ? keep : [...keep, id], id);
-  };
-
-  const keepSuggested = (list: Glyph[]) => {
-    for (const g of list) {
-      const keep = g.candidates.filter((c) => c.suggested).map((c) => c.id).slice(0, maxKeep);
-      if (keep.length) choose.mutate({ char: g.char, keep, def: keep[0] });
-    }
-    announce(`Kept the suggestions for ${list.length} character${list.length === 1 ? '' : 's'}`);
-  };
 
   // ---- roving focus
   const positions = useMemo(() => visible.map((g) => g.candidates.map((c) => c.id)), [visible]);
@@ -108,7 +52,7 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
     if (!id) return;
     setActive(id);
     tiles.current.get(id)?.focus();
-  }, []);
+  }, [setActive]);
 
   const onKeyDown = (e: React.KeyboardEvent, gi: number, ci: number) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -125,6 +69,8 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
       case 'ArrowUp': target = go(-1); break;
       case 'Home': target = row[0]; break;
       case 'End': target = row.at(-1); break;
+      case ' ': toggle(visible[gi], row[ci]); e.preventDefault(); return;    // not the button's click: that inspects
+      case 'Enter': onInspect(row[ci], 'keyboard'); e.preventDefault(); return;
       case 's': case 'S': star(visible[gi], row[ci]); e.preventDefault(); return;
       default: return;
     }
@@ -135,7 +81,7 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
   useEffect(() => {
     // Keep a live tab stop when filters remove the focused tile.
     if (active && !positions.flat().includes(active)) setActive(null);
-  }, [positions, active]);
+  }, [positions, active, setActive]);
 
   const keptCount = glyphs.filter((g) => g.keep.length).length;
 
@@ -163,7 +109,7 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
           )}
         </div>
         <p className="cull__keys" id="cull-keys">
-          <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>Space</kbd> keep · <kbd>S</kbd> or the star: default
+          <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>Space</kbd> or the check: keep · <kbd>S</kbd> or the star: default · <kbd>Enter</kbd> inspector
         </p>
       </header>
 
@@ -203,16 +149,18 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
                   const isDefault = c.id === def && kept;
                   return (
                     <div key={c.id} className="tile-cell">
-                    <div className="tile" data-kept={kept || undefined} data-tentative={(!decided && kept) || undefined}>
+                    <div className="tile" data-kept={kept || undefined} data-tentative={(!decided && kept) || undefined}
+                      data-active={c.id === active || undefined}>
                       <button
                         ref={(el) => { if (el) tiles.current.set(c.id, el); else tiles.current.delete(c.id); }}
                         type="button"
                         className="tile__toggle"
-                        aria-pressed={decided ? kept : false}
+                        aria-controls="inspector"
                         tabIndex={c.id === tabStop ? 0 : -1}
                         onFocus={() => setActive(c.id)}
-                        onClick={() => toggle(g, c.id)}
+                        onClick={() => { focusTile(c.id); onInspect(c.id, 'pointer'); }}
                         onKeyDown={(e) => onKeyDown(e, gi, ci)}
+                        onKeyUp={(e) => { if (e.key === ' ') e.preventDefault(); }}
                       >
                         <span className="tile__art">
                           {showSource ? (
@@ -223,13 +171,33 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
                         </span>
                         <span className="tui-visually-hidden">
                           Candidate {ci + 1} of {g.candidates.length}
+                          {decided ? (kept ? ', kept' : ', not kept') : ''}
                           {isDefault ? ', default' : ''}
                           {!decided && kept ? ', suggested' : ''}
+                          {c.corrections && hasCorrections(c.corrections) ? ', corrected' : ''}
                           {c.flags.length ? `, ${c.flags.join(', ')}` : ''}
                         </span>
                       </button>
-                      {/* The pointer's way to star a default; the keyboard's is S on the tile. Out of the
-                          tab order so the list stays one stop; screen readers still reach it in browse mode. */}
+                      {/* The pointer's ways to keep and to star a default; the keyboard's are Space and S
+                          on the tile. Out of the tab order so the list stays one stop; screen readers still
+                          reach them in browse mode. */}
+                      <Tooltip>
+                        <Tooltip.Trigger asChild>
+                          <IconButton
+                            className="tile__keep"
+                            icon={Check}
+                            label="Keep"
+                            aria-pressed={decided ? kept : false}
+                            variant="ghost"
+                            size="xs"
+                            tabIndex={-1}
+                            onClick={() => toggle(g, c.id)}
+                          />
+                        </Tooltip.Trigger>
+                        <Tooltip.Content side="top">
+                          {decided && kept ? `Kept · Space to unkeep` : `Keep this ${g.char} · Space`}
+                        </Tooltip.Content>
+                      </Tooltip>
                       <Tooltip>
                         <Tooltip.Trigger asChild>
                           <IconButton
@@ -250,6 +218,7 @@ export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
                     </div>
                     {/* In the toggle's name already; shown under the box for the eye */}
                     {c.flags.length > 0 && <span className="tile__flags" aria-hidden="true">{c.flags.join(', ')}</span>}
+                    {c.corrections && hasCorrections(c.corrections) && <span className="tile__corrected" aria-hidden="true">corrected</span>}
                     </div>
                   );
                 })}

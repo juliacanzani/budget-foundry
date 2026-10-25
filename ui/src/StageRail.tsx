@@ -108,7 +108,7 @@ export function StagesMenu(props: Props) {
       <Sidebar drawer open={open} onClose={() => setOpen(false)} position="left" aria-label="Stages" className="stages-drawer">
         {/* Not Sidebar.Header: in 0.2.31's drawer its <header> is no longer inside an <aside>,
             so it reads as a second page banner. Back to Sidebar.Header once that's fixed. */}
-        <div className="stages-drawer__head">
+        <div className="drawer-head">
           <h2>Stages</h2>
           <IconButton icon={Close} label="Close" variant="ghost" size="sm" onClick={() => setOpen(false)} />
         </div>

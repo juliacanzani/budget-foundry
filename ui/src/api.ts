@@ -13,6 +13,15 @@ export type Project = {
   without_default: string[];
 };
 
+/** Per-candidate corrections: baseline in font units (up), rotate in degrees
+    (anticlockwise), scale a factor, weight in stroke widths added. */
+export type Corrections = { baseline: number; rotate: number; scale: number; weight: number };
+export const NO_CORRECTIONS: Corrections = { baseline: 0, rotate: 0, scale: 1, weight: 0 };
+
+/** A flag's own fix: the correction that brings it to its character's median.
+    `evened`: normalising already brings it there, so there's nothing to do. */
+export type Fix = { flag: string; label: string; set: Partial<Corrections>; applied: boolean; evened: boolean };
+
 export type Candidate = {
   id: string;
   path: string;          // SVG path in font units, y up, origin at the left sidebearing
@@ -23,6 +32,8 @@ export type Candidate = {
   score: number;
   suggested: boolean;
   sheet: string;
+  corrections: Corrections | null;   // null for parts of another glyph (curly singles)
+  fixes: Fix[];
 };
 
 export type Glyph = {
@@ -33,6 +44,8 @@ export type Glyph = {
   default: string | null;
   source: 'human' | 'ai' | 'auto' | null;
 };
+
+export type GlyphState = { keep: string[]; default: string | null };
 
 export type PreviewGlyph = { name: string; x: number; advance: number; path: string | null };
 export type Preview = { width: number; glyphs: PreviewGlyph[]; missing: string[] };
@@ -57,12 +70,19 @@ async function json<T>(res: Response): Promise<T> {
 export const api = {
   project: () => fetch('/api/project').then((r) => json<Project>(r)),
   glyphs: () => fetch('/api/glyphs').then((r) => json<Glyph[]>(r)),
-  // By codepoint: a '.' or '/' in the path would be eaten by URL resolution
-  choose: (char: string, keep: string[], def: string | null) =>
+  // By codepoint: a '.' or '/' in the path would be eaten by URL resolution.
+  // `expect` is what the caller believes is current (undo); the server refuses if it isn't.
+  choose: (char: string, keep: string[], def: string | null, expect?: GlyphState) =>
     fetch(`/api/glyphs/U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keep, default: def }),
+      body: JSON.stringify({ keep, default: def, expect }),
+    }).then((r) => json<Glyph>(r)),
+  correct: (id: string, set: Corrections, expect?: Corrections) =>
+    fetch(`/api/candidates/${encodeURIComponent(id)}/corrections`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ set, expect }),
     }).then((r) => json<Glyph>(r)),
   preview: (text: string, calt: boolean) =>
     fetch(`/api/preview?${new URLSearchParams({ text, calt: String(calt) })}`).then((r) => json<Preview>(r)),

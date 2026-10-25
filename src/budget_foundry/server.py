@@ -106,7 +106,7 @@ class State:
     def fixes(self, ch, d) -> dict[str, list]:
         """Per candidate of ch, a fix for each flag that has one: the correction that
         brings it to its character's median, and whether that's already applied. A flag
-        that normalising already evens out (often weight) gets none. Slant rotates by the
+        that normalising already evens out (often weight) is marked `evened`, not fixed. Slant rotates by the
         measured difference: the measure isn't a true angle, so matching it exactly
         overrotates bowls and crossbars; the slider is there to finish it."""
         norm = {r: g for r, g in self.norm['glyphs'].items() if g['ch'] == ch and '#' not in r}
@@ -131,10 +131,9 @@ class State:
                     if h > U: fx.append(dict(flag=flag, label=FIX_LABELS[flag], set=dict(scale=round(cur['scale'] * (med_h - U) / (h - U), 3))))
                 elif flag in ('light', 'heavy'):
                     fx.append(dict(flag=flag, label=FIX_LABELS[flag], set=dict(weight=round(med_w - eff(c), 3))))
-            def needed(x):
+            for x in fx:
                 (k, v), = x['set'].items(); x['applied'] = abs(v - cur[k]) <= CLOSE[k]
-                return abs(v - build.CORRECTIONS[k]) > CLOSE[k] or not x['applied']   # a fix of nothing isn't one
-            fx = [x for x in fx if needed(x)]
+                x['evened'] = x['applied'] and abs(v - build.CORRECTIONS[k]) <= CLOSE[k]   # a fix of nothing isn't one
             if fx: out[r] = fx
         return out
 

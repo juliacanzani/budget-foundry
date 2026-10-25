@@ -1,15 +1,36 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Notice } from '@tangible/ui';
+import { Button, IconButton, Notice, Sidebar } from '@tangible/ui';
+import { Close, Redo, Undo } from '@tangible/ui/icons/system/index.js';
 import { systemTheme, type Mode } from './theme';
 import { ThemeButton, themeLabel } from './ThemeButton';
 import { api, type BuildResult as Result } from './api';
 import { BuildResult } from './BuildResult';
 import { CullView } from './CullView';
 import type { Frame } from './GlyphArt';
+import { redo, undo, useHistory } from './history';
+import { Inspector } from './Inspector';
 import { LookAlikes } from './LookAlikes';
 import { Preview } from './Preview';
 import { StageRail, StagesMenu } from './StageRail';
+
+// Where the side columns give way to drawers; matches the breakpoint in app.css
+const NARROW = '(max-width: 52rem)';
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW);
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return narrow;
+}
+
+// ⌘Z and ⇧⌘Z belong to a text field while you type in one; sliders and buttons pass them on
+const typing = (t: EventTarget | null) =>
+  t instanceof HTMLElement && (t.isContentEditable || t instanceof HTMLTextAreaElement
+    || (t instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button'].includes(t.type)));
 
 export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'light' | 'dark'; onModeChange: (m: Mode) => void }) {
   const qc = useQueryClient();
@@ -20,6 +41,34 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
   const [result, setResult] = useState<Result | null>(null);
   const [buildError, setBuildError] = useState<string | null>(null);
   const events = useRef<EventSource | null>(null);
+  const [active, setActive] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState(false);
+  const narrow = useNarrow();
+  const inspectorHeading = useRef<HTMLHeadingElement>(null);
+  const history = useHistory();
+
+  useEffect(() => { if (!narrow) setDrawer(false); }, [narrow]);
+
+  const step = async (which: 'undo' | 'redo') => {
+    if (building) return;
+    const m = await (which === 'undo' ? undo() : redo());
+    if (m) setMessage(m);
+  };
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || typing(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z') { e.preventDefault(); step(e.shiftKey ? 'redo' : 'undo'); }
+      else if (k === 'y' && e.ctrlKey && !e.metaKey) { e.preventDefault(); step('redo'); }
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  });
+
+  const inspect = (_id: string, how: 'pointer' | 'keyboard') => {
+    if (narrow) setDrawer(true);
+    else if (how === 'keyboard') inspectorHeading.current?.focus();
+  };
 
   // One frame for every tile, so sizes compare honestly across characters.
   const frame: Frame | null = useMemo(() => {
@@ -67,6 +116,12 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
       <header className="app__bar">
         <StagesMenu stages={project.data.stages} decided={project.data.decided} characters={project.data.characters} />
         <p className="app__name"><span className="app__product">Budget Foundry</span> {project.data.name}</p>
+        <span className="app__history">
+          <IconButton icon={Undo} label={history.canUndo ? `Undo: ${history.undoLabel}` : 'Undo'} showTooltip tooltipSide="bottom"
+            variant="ghost" size="sm" disabled={!history.canUndo || building} aria-keyshortcuts="Meta+Z Control+Z" onClick={() => step('undo')} />
+          <IconButton icon={Redo} label={history.canRedo ? `Redo: ${history.redoLabel}` : 'Redo'} showTooltip tooltipSide="bottom"
+            variant="ghost" size="sm" disabled={!history.canRedo || building} aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" onClick={() => step('redo')} />
+        </span>
         <ThemeButton mode={mode} resolved={resolved} onChange={(m) => {
           onModeChange(m);
           const r = m === 'system' ? systemTheme() : m;
@@ -78,8 +133,22 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
       <main className="app__main" id="main">
         <BuildResult result={result} error={buildError} onDismiss={() => { setResult(null); setBuildError(null); }} />
         <LookAlikes glyphs={glyphs.data} frame={frame} />
-        <CullView glyphs={glyphs.data} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
+        <CullView glyphs={glyphs.data} frame={frame} maxKeep={project.data.max_keep} announce={setMessage}
+          active={active} onActive={setActive} onInspect={inspect} />
       </main>
+      <aside className="inspector" id="inspector" aria-label="Inspector">
+        <Inspector ref={inspectorHeading} glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
+      </aside>
+      {/* Phones: the inspector as a drawer from the right, opened from a tile */}
+      <Sidebar drawer open={drawer} onClose={() => setDrawer(false)} position="right" aria-label="Inspector" className="inspector-drawer">
+        <div className="drawer-head">
+          <h2>Inspector</h2>
+          <IconButton icon={Close} label="Close" variant="ghost" size="sm" onClick={() => setDrawer(false)} />
+        </div>
+        <div className="inspector-drawer__body">
+          <Inspector glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
+        </div>
+      </Sidebar>
       <footer className="app__preview">
         <Preview frame={frame} />
       </footer>
