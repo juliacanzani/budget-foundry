@@ -146,8 +146,11 @@ def create_app(root: Path, log=print) -> FastAPI:
                               suggested=False if '#' in r else c['suggested'], sheet=c['sheet']))
         keep, default, source = e.get('keep', []), e.get('default'), e.get('source')
         if not keep and ch in st.derived_by_component():
-            st.preview_font(d)                       # resolves the rule's picks on the shared builder
-            keep = st._builder.refs.get(ch, []); default = keep[0] if keep else None; source = 'auto' if keep else None
+            try:
+                st.preview_font(d)                   # resolves the rule's picks on the shared builder
+                keep = st._builder.refs.get(ch, [])
+            except RuntimeError: keep = []           # decisions the font can't take yet; the preview says why
+            default = keep[0] if keep else None; source = 'auto' if keep else None
         return dict(char=ch, codepoint=f'U+{ord(ch):04X}', candidates=cands, keep=keep, default=default, source=source)
 
     @app.get('/api/project')
@@ -159,7 +162,7 @@ def create_app(root: Path, log=print) -> FastAPI:
                     metrics=dict(upm=m['UPM'], cap=m['CAP'], xheight=round(m['XH']), descender=round(m['DESC']),
                                  ascender=build.settings(p)['metrics']['ascender'], stroke=round(m['U'])),
                     stages=[dict(name=n, state=s) for n, s in pipeline.status(p)],
-                    characters=len(order), decided=len(decided),
+                    characters=len(order), decided=len(decided), max_keep=features.MAX_VARIANTS,
                     without_default=[ch for ch in decided if not d['glyphs'][ch].get('default')])
 
     @app.get('/api/glyphs')
@@ -174,6 +177,10 @@ def create_app(root: Path, log=print) -> FastAPI:
             valid = {r for r, g in st.norm['glyphs'].items() if g['ch'] == char}
             bad = [i for i in body.keep if i not in valid]
             if bad: raise HTTPException(422, f'not candidates for {char!r}: {bad}')
+            # More than the font can cycle; shrinking a set already over (from an old file) is allowed
+            before = d['glyphs'].get(char, {}).get('keep', [])
+            if len(body.keep) > features.MAX_VARIANTS and len(body.keep) >= len(before):
+                raise HTTPException(422, f'at most {features.MAX_VARIANTS} kept per character')
             if body.default is not None and body.default not in body.keep:
                 raise HTTPException(422, 'the default must be one of the kept candidates')
             if body.keep:
@@ -187,7 +194,8 @@ def create_app(root: Path, log=print) -> FastAPI:
     def preview(text: str, calt: bool = True):
         if len(text) > 500: raise HTTPException(413, 'preview text is limited to 500 characters')
         with st.lock:
-            font, order, path_of, cmap = st.preview_font(st.p.load_decisions())
+            try: font, order, path_of, cmap = st.preview_font(st.p.load_decisions())
+            except RuntimeError as e: raise HTTPException(409, str(e))
             buf = hb.Buffer(); buf.add_str(text); buf.guess_segment_properties()
             hb.shape(font, buf, {'calt': calt})
             x = 0; out = []

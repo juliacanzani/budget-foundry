@@ -9,6 +9,7 @@ export type Project = {
   stages: Stage[];
   characters: number;
   decided: number;
+  max_keep: number;      // the most versions of a character the font can cycle
   without_default: string[];
 };
 

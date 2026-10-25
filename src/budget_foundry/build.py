@@ -364,6 +364,10 @@ class Builder:
 
     def glyph_table(self):
         U = self.U
+        over = [f'{ch} ({len(ids)})' for ch, ids in self.picks.items() if len(ids) > features.MAX_VARIANTS]
+        if over:
+            raise RuntimeError(f"A font cycles at most {features.MAX_VARIANTS} versions of a character; "
+                               f"unkeep some of {', '.join(over)}")
         self.glyphs = {}; self.nvar = {}; self.chosen = {}
         for ch, s, g in self.selection():
             ox, dy = g['lsb'] - g['xmin'], g['dy']

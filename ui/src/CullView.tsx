@@ -12,7 +12,7 @@ const kindOf = (ch: string): Exclude<Kind, 'all'> =>
 const TILE_HEIGHT = 104;
 const TILE_MIN_ART = 48;   // the 64px tile minus its xs (8px) side padding
 
-type Props = { glyphs: Glyph[]; frame: Frame; announce: (msg: string) => void };
+type Props = { glyphs: Glyph[]; frame: Frame; maxKeep: number; announce: (msg: string) => void };
 
 /**
  * One row per character, every candidate normalised and drawn on the guides.
@@ -20,7 +20,7 @@ type Props = { glyphs: Glyph[]; frame: Frame; announce: (msg: string) => void };
  * One tab stop for the whole list (roving focus); the shortcuts only act on a
  * focused tile, so they never fire while typing elsewhere.
  */
-export function CullView({ glyphs, frame, announce }: Props) {
+export function CullView({ glyphs, frame, maxKeep, announce }: Props) {
   const qc = useQueryClient();
   const [kind, setKind] = useState<Kind>('all');
   const [onlyUndecided, setOnlyUndecided] = useState(false);
@@ -72,18 +72,26 @@ export function CullView({ glyphs, frame, announce }: Props) {
 
   const toggle = (g: Glyph, id: string) => {
     const keep = startingKeep(g);
+    if (!keep.includes(id) && keep.length >= maxKeep) {
+      announce(`${g.char} already has ${maxKeep} kept, the most the font can cycle. Unkeep one first.`);
+      return;
+    }
     const next = keep.includes(id) ? keep.filter((k) => k !== id) : [...keep, id];
     save(g, next, g.keep.length ? g.default : next[0] ?? null);
   };
 
   const star = (g: Glyph, id: string) => {
     const keep = startingKeep(g);
+    if (!keep.includes(id) && keep.length >= maxKeep) {
+      announce(`${g.char} already has ${maxKeep} kept, the most the font can cycle. Unkeep one to make this the default.`);
+      return;
+    }
     save(g, keep.includes(id) ? keep : [...keep, id], id);
   };
 
   const keepSuggested = (list: Glyph[]) => {
     for (const g of list) {
-      const keep = g.candidates.filter((c) => c.suggested).map((c) => c.id);
+      const keep = g.candidates.filter((c) => c.suggested).map((c) => c.id).slice(0, maxKeep);
       if (keep.length) choose.mutate({ char: g.char, keep, def: keep[0] });
     }
     announce(`Kept the suggestions for ${list.length} character${list.length === 1 ? '' : 's'}`);
@@ -177,7 +185,10 @@ export function CullView({ glyphs, frame, announce }: Props) {
                 </h2>
                 <span className="cull__cp" aria-hidden="true">{g.codepoint}</span>
                 {decided ? (
-                  <span className="cull__count">{g.keep.length} of {g.candidates.length} kept</span>
+                  <span className="cull__count" data-over={g.keep.length > maxKeep || undefined}>
+                    {g.keep.length} of {g.candidates.length} kept
+                    {g.keep.length > maxKeep && ` · the font takes ${maxKeep}, unkeep ${g.keep.length - maxKeep}`}
+                  </span>
                 ) : (
                   <Chip size="sm" theme="warning" variant="outline">To choose</Chip>
                 )}

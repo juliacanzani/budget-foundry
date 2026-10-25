@@ -46,6 +46,23 @@ def test_choosing_writes_decisions_with_provenance(client):
     assert c.put(f'/api/glyphs/{ch}', json={'keep': ids[:1], 'default': ids[2]}).status_code == 422
 
 
+
+def test_keeps_stop_at_what_the_font_cycles(client):
+    c, p = client
+    a = next(e for e in c.get('/api/glyphs').json() if e['char'] == 'A')
+    ids = [k['id'] for k in a['candidates']]
+    assert len(ids) == 6 and c.get('/api/project').json()['max_keep'] == 4
+    assert c.put('/api/glyphs/A', json={'keep': ids[:5]}).status_code == 422
+    # an older decisions file can be over; the preview says which, and shrinking is allowed
+    f = p.root / 'decisions.json'; d = json.loads(f.read_text())
+    d['glyphs']['A'] = {'keep': ids, 'default': ids[0], 'source': 'human'}; f.write_text(json.dumps(d))
+    r = c.get('/api/preview', params={'text': 'A'})
+    assert r.status_code == 409 and 'A (6)' in r.json()['detail']
+    assert c.get('/api/glyphs').status_code == 200
+    assert c.put('/api/glyphs/A', json={'keep': ids[:5]}).status_code == 200
+    assert c.put('/api/glyphs/A', json={'keep': ids[:3]}).status_code == 200
+    assert c.get('/api/preview', params={'text': 'A'}).status_code == 200
+
 def test_preview_cycles_and_reports_missing(client):
     c, _ = client
     g = c.get('/api/glyphs').json()

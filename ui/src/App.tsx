@@ -78,7 +78,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
       <main className="app__main" id="main">
         <BuildResult result={result} error={buildError} onDismiss={() => { setResult(null); setBuildError(null); }} />
         <LookAlikes glyphs={glyphs.data} frame={frame} />
-        <CullView glyphs={glyphs.data} frame={frame} announce={setMessage} />
+        <CullView glyphs={glyphs.data} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
       </main>
       <footer className="app__preview">
         <Preview frame={frame} />

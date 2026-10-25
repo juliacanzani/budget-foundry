@@ -110,6 +110,7 @@ html, body { margin: 0; }
 .cull__glyph { margin: 0; font-size: 2.25rem; line-height: 1; font-weight: 600; }
 .cull__cp { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-variant-numeric: tabular-nums; }
 .cull__count { font-size: 0.8125rem; color: var(--tui-color-fg-secondary); }
+.cull__count[data-over] { color: var(--tui-theme-danger-strong); font-weight: 600; }
 .cull__tiles { display: flex; flex-wrap: wrap; gap: var(--tui-spacing-xs); align-items: flex-start; }
 
 .tile-cell { display: grid; justify-items: center; gap: var(--tui-spacing-xxs); }

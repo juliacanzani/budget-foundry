@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import zlib
 
+MAX_VARIANTS = 4                                       # the cycle's slots; more are never shown
+
 
 def gname(ch: str, slot: int) -> str:
     """Production names only: uniXXXX, uniXXXX.altN."""
@@ -49,7 +51,7 @@ def generate(nvar: dict[str, int], space_variants: int = 3) -> str:
     def L(cs, n=None, only=None):
         l = [nm(c, 0) for c in cs if (n is None or nv[c] >= n) and (only is None or nv[c] == only)]
         return '[' + ' '.join(l) + ']' if l else None
-    if any(nv[c] > 4 for c in chars): raise ValueError('at most four variants per character')
+    if any(nv[c] > MAX_VARIANTS for c in chars): raise ValueError(f'at most {MAX_VARIANTS} variants per character')
     rules = []
     def r(prev, cs, out):
         targ = L(cs)

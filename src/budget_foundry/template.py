@@ -238,7 +238,7 @@ def guide_page(c, p: Project, lay: dict, guide, Y, mono: bool) -> None:
              'Each row is for the grey character at its left; symbols are named under it, with an example '
              'where size or length matters (a hyphen is short, an em dash long). Write it 5 to 8 times along '
              'the row. Every copy '
-             'is a candidate: you pick the keepers later, and the font cycles through them so repeated '
+             'is a candidate: you keep up to four later, and the font cycles through them so repeated '
              'letters vary.',
              'Leave a clear gap between copies: ink that touches becomes one shape. The dots on i and j are fine.',
              'Write naturally rather than precisely. Size and baseline are evened out, so the lines are a '
