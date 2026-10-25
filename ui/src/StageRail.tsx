@@ -1,5 +1,6 @@
-import { ContentIndicator, StepIndicator } from '@tangible/ui';
-import { Redo } from '@tangible/ui/icons/system/index.js';
+import { useState } from 'react';
+import { ContentIndicator, IconButton, StepIndicator } from '@tangible/ui';
+import { Redo, SidebarCollapse, SidebarExpand } from '@tangible/ui/icons/system/index.js';
 import type { Stage } from './api';
 
 // The spec's ten stages. Only culling has a screen so far; the rest run from the CLI.
@@ -34,32 +35,49 @@ function StateIndicator({ state }: { state: Stage['state'] }) {
   return <StepIndicator status={state === 'done' ? 'complete' : 'not-started'} size="xs" labels={WORDS} />;
 }
 
+// Collapsed or not, remembered per browser
+const COLLAPSED_KEY = 'budget-foundry:rail-collapsed';
+function readCollapsed() {
+  try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
+}
+
 export function StageRail({ stages, decided, characters }: { stages: Stage[]; decided: number; characters: number }) {
   const toChoose = characters - decided;
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = () => {
+    setCollapsed(!collapsed);
+    try { if (collapsed) localStorage.removeItem(COLLAPSED_KEY); else localStorage.setItem(COLLAPSED_KEY, '1'); } catch { /* not saved */ }
+  };
+  // Collapsed keeps the rings; the names stay in the accessibility tree, only hidden from view
   return (
-    <nav className="rail" aria-label="Stages">
-      <ol>
-        {STAGES.map((s) => {
-          const state = stateOf(s.key, stages);
-          const current = s.key === 'cull';
-          return (
-            <li key={s.name} aria-current={current ? 'step' : undefined} className={current ? 'is-current' : undefined}>
-              <span className="rail__state">
-                {state && <StateIndicator state={state} />}
-                {current && (
-                  <StepIndicator value={characters ? (100 * decided) / characters : 0} status={toChoose ? 'in-progress' : 'complete'}
-                    size="xs" label={`${decided} of ${characters} chosen`} />
-                )}
-              </span>
-              <span className="rail__name">
-                {s.name}
-                {current && toChoose > 0 && <span className="rail__cli">{toChoose} to choose</span>}
-                {!current && s.cli && <span className="rail__cli">{state === 'stale' ? 'Out of date · ' : ''}CLI: {s.cli}</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+    <nav className={`rail${collapsed ? ' is-collapsed' : ''}`} aria-label="Stages">
+      <div className="rail__inner">
+        <IconButton className="rail__toggle" icon={collapsed ? SidebarExpand : SidebarCollapse}
+          label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} showTooltip tooltipSide="right"
+          variant="ghost" size="sm" onClick={toggle} />
+        <ol>
+          {STAGES.map((s) => {
+            const state = stateOf(s.key, stages);
+            const current = s.key === 'cull';
+            return (
+              <li key={s.name} aria-current={current ? 'step' : undefined} className={current ? 'is-current' : undefined}>
+                <span className="rail__state">
+                  {state && <StateIndicator state={state} />}
+                  {current && (
+                    <StepIndicator value={characters ? (100 * decided) / characters : 0} status={toChoose ? 'in-progress' : 'complete'}
+                      size="xs" label={`${decided} of ${characters} chosen`} />
+                  )}
+                </span>
+                <span className="rail__name">
+                  {s.name}
+                  {current && toChoose > 0 && <span className="rail__cli">{toChoose} to choose</span>}
+                  {!current && s.cli && <span className="rail__cli">{state === 'stale' ? 'Out of date · ' : ''}CLI: {s.cli}</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </nav>
   );
 }
