@@ -90,8 +90,12 @@ def run(p: Project, key: str, log=print) -> None:
     if p.sheet(key).get('kind') == 'freeform':
         return run_freeform(p, key, photo, s, out, log)
     found = template.find_sheet(p, cv2.cvtColor(np.asarray(photo), cv2.COLOR_RGB2GRAY))
+    guide = bool(found) and found[1] == template.GUIDE
     tinfo = None
-    if found:
+    if guide:
+        photo.save(out / 'image.png')
+        tinfo = dict(rev=found[0]['rev'], kind='guide')
+    elif found:
         lay, n, Hm, rep = found; ppm = s['px_per_mm']
         W, H = int(round(lay['size'][0] * ppm)), int(round(lay['size'][1] * ppm))
         warp = cv2.warpPerspective(np.asarray(photo), np.diag([ppm, ppm, 1.0]) @ Hm, (W, H),
@@ -102,7 +106,9 @@ def run(p: Project, key: str, log=print) -> None:
         photo.save(out / 'image.png')
     gray = cv2.imread(str(out / 'image.png'), cv2.IMREAD_GRAYSCALE)
     norm, ink = flatten(gray, s)
-    if found:
+    if guide:
+        ink[:] = 0                                         # instructions, not handwriting
+    elif found:
         guides = template.guide_mask(lay, n, ppm, ink.shape)
         ink[guides & (norm >= s['guide_ink_below'])] = 0
         ink[~template.writing_mask(lay, n, ppm, ink.shape)] = 0
@@ -118,6 +124,9 @@ def run(p: Project, key: str, log=print) -> None:
                   stroke_px=float(np.median(sws)) if sws.size else 0.0, location=has_location(p.source_path(key)),
                   template=tinfo)
     p.mark_stage(out, stage_fp(p, key), source_sha256=sha256_file(p.source_path(key)), **report)
+    if guide:
+        log(f"  sheet {key}: the template's guide page, skipped (rev {tinfo['rev']})")
+        return
     log(f'  sheet {key}: {W}×{H}px, {len(comps)} components, median stroke {report["stroke_px"]:.1f}px'
         + (f", template sheet {tinfo['sheet'] + 1} ({tinfo['kind']}), {tinfo['markers']} markers, fit ±{tinfo['error_mm']}mm, "
            f"cap height {tinfo['cap_px']}px in the photo" if tinfo else ', no markers: manual layout'))

@@ -262,6 +262,8 @@ def run(p: Project, log=print) -> list[str]:
                              sheet=k, row=f'{k}free', base=float(p.sheet(k).get('baseline', y1))))
         elif t and t['kind'] == 'chars':
             allg += label_template(k, sheets[k]['comps'], sheet_sw[k], lays[t['rev']], t['sheet'], ppm)
+        elif t and t['kind'] == 'guide':
+            pass                                          # the instructions page: nothing to label
         elif t:
             log(f'  sheet {k}: {t["kind"]} page, kept for reference (harvesting comes with ligatures)')
         else:

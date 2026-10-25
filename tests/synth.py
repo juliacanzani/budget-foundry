@@ -93,7 +93,7 @@ def synthetic_project(tmp, sheets=(0,), font=None, mono_every=2):
     files = []
     for k, n in enumerate(sheets):
         mono = bool(mono_every) and k % mono_every == 1
-        img, _ = write_rows(page_image(pdfs[mono], n, 12), lay['sheets'][n], 12, font, seed=n, guide_gamma=1.5 if mono else 1.0)
+        img, _ = write_rows(page_image(pdfs[mono], n + template.GUIDE_PAGES, 12), lay['sheets'][n], 12, font, seed=n, guide_gamma=1.5 if mono else 1.0)
         f = tmp / f'sheet{n + 1:02d}.jpg'; f.write_bytes(photograph(img, seed=n, rotate=(-1) ** n * (2 + n % 4))); files.append(f)
     add_sources(p, files, log=lambda *a: None)
     return Project.open(p.root)

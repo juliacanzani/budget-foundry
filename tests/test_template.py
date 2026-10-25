@@ -23,7 +23,7 @@ QUIET = dict(log=lambda *a: None)
 
 def photo_of(p, pdf, n, tmp, seed, gamma=1.0, rotate=3.0):
     lay = template.layout(p)
-    img, expected = write_rows(page_image(pdf, n, 12), lay['sheets'][n], 12, FONT, seed=seed, guide_gamma=gamma)
+    img, expected = write_rows(page_image(pdf, n + template.GUIDE_PAGES, 12), lay['sheets'][n], 12, FONT, seed=seed, guide_gamma=gamma)
     f = tmp / f'sheet{n + 1}-{seed}.jpg'
     f.write_bytes(photograph(img, seed=seed, rotate=rotate))
     return f, expected
@@ -85,7 +85,7 @@ def test_old_printout_survives_charset_change(proj):
 def test_pdf_scan_imports(proj, tmp_path):
     p, tmp, _ = proj
     lay = template.layout(p)
-    img, exp = write_rows(page_image(tmp / 'colour.pdf', 1, 12), lay['sheets'][1], 12, FONT, seed=5)
+    img, exp = write_rows(page_image(tmp / 'colour.pdf', 1 + template.GUIDE_PAGES, 12), lay['sheets'][1], 12, FONT, seed=5)
     pdf = tmp_path / 'scan.pdf'
     img.save(pdf, 'PDF', resolution=300)
     p = Project.open(p.root)
@@ -95,6 +95,25 @@ def test_pdf_scan_imports(proj, tmp_path):
     cands, _ = segment.load(p)
     got = Counter(c['ch'] for c in cands.values() if c['sheet'] == key)
     assert got == Counter(dict(exp))
+
+
+def test_guide_page_is_skipped(proj, tmp_path):
+    """A whole exported PDF, guide page first (a tablet export), imports with the guide skipped."""
+    p, tmp, _ = proj
+    lay = template.layout(p)
+    guide = page_image(tmp / 'colour.pdf', 0, 12)
+    img, exp = write_rows(page_image(tmp / 'colour.pdf', 2 + template.GUIDE_PAGES, 12), lay['sheets'][2], 12, FONT, seed=6)
+    pdf = tmp_path / 'export.pdf'
+    guide.save(pdf, 'PDF', resolution=300, save_all=True, append_images=[img])
+    p = Project.open(p.root)
+    first, second = add_sources(p, [pdf], **QUIET)
+    p = Project.open(p.root)
+    pipeline.run_segment(p, **QUIET)
+    rec = p.stage_record(p.sheet_dir(first))
+    assert rec['template'] == dict(rev=lay['rev'], kind='guide') and rec['components'] == 0
+    cands, _ = segment.load(p)
+    assert not [c for c in cands.values() if c['sheet'] == first]
+    assert Counter(c['ch'] for c in cands.values() if c['sheet'] == second) == Counter(dict(exp))
 
 
 def test_freeform_glyph_by_colour(proj, tmp_path):

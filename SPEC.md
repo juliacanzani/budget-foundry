@@ -65,6 +65,7 @@ my-font/
 Ten stages, each with a status (not run, stale, done) that goes stale when anything upstream changes. Stages 5, 7 and 8 loop back through the build preview until the font looks right.
 
 1. **Template.** Generate a printable PDF from the charset.
+   - A guide page first: how to print, write, photograph and import. It carries the revision marker and no corner markers, so import recognises and skips it, and anyone who doesn't want it prints from page 2.
    - Guide lines for baseline, x-height, cap height and descender, pale cyan for colour printers or light grey for mono ones. Import removes them by position (once the markers are found it knows where every guide sits) and by lightness, so a colour printer is never required.
    - One character per row, labelled in the margin in the guide colour. Rows are long enough for 8 repeats, spaced so letters don't touch.
    - Four ArUco markers in the corners plus a sheet code, so import knows the sheet, its row order and its scale.
@@ -261,3 +262,4 @@ Each milestone is usable on its own; the gate is what has to be true before star
 - Ligatures from both sources, each optional: pairs harvested from the seeded words page, and pairs from an optional ligature page.
 - The app is style-agnostic: written, cursive and drawn modes, chosen per project (see Project modes).
 - Templates work printed in grayscale: guides are removed by position, not colour.
+- The template PDF opens with a guide page; skipping it is a print range, not an option.

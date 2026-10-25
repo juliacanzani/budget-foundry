@@ -8,6 +8,9 @@ Each sheet carries four corner ArUco markers (ids 4n..4n+3 for sheet n: top left
 top right, bottom right, bottom left) and one revision marker (id 800 + rev mod 200).
 Guides print pale cyan or light grey; import removes them by position and lightness,
 so a mono printer works as well as a colour one.
+
+The PDF opens with a guide page: instructions only, outside the layout. It carries the
+revision marker and no corner markers, which is how import knows to skip it.
 """
 from __future__ import annotations
 
@@ -25,6 +28,8 @@ DEFAULTS = dict(paper='letter', cap_mm=10.0, xheight=0.66, descender=0.36, pitch
                 marker_mm=12.0, margin_mm=8.0, label_mm=20.0)
 ARUCO = cv2.aruco.DICT_4X4_1000
 REV_BASE, REV_SPAN = 800, 200
+GUIDE = 'guide'                                        # find_sheet's sheet index for the guide page
+GUIDE_PAGES = 1                                        # PDF pages before sheet 0
 GUIDE_COLOUR = {'colour': (0.55, 0.85, 0.93), 'mono': (0.72, 0.72, 0.72)}   # pale cyan, light grey
 GUIDE_MM = 0.3
 WORDS = ['nanbncndnenfngnhninjnknlnmnonpnqnrnsntnunvnwnxnynzn', 'Hamburgevons', 'HAMBURGEFONSTIV',
@@ -115,6 +120,10 @@ def write_pdf(p: Project, out: Path, mono: bool = False) -> tuple[Path, dict]:
                 if bits[r, q] == 0:
                     c.rect((x + q * cell) * mm, Y(y + (r + 1) * cell), cell * mm + 0.02, cell * mm + 0.02, stroke=0, fill=1)
 
+    rx, ry = rev_marker_origin(lay); marker(lay['rev_marker'], rx, ry, lay['marker_mm'])
+    guide_page(c, p, lay, guide, Y, mono)
+    c.showPage()
+
     for sh in lay['sheets']:
         k = lay['marker_mm']
         for corner, pts in marker_corners_mm(lay).items():
@@ -145,10 +154,100 @@ def write_pdf(p: Project, out: Path, mono: bool = False) -> tuple[Path, dict]:
     return out, lay
 
 
+def guide_page(c, p: Project, lay: dict, guide, Y, mono: bool) -> None:
+    """How to fill in the template, on its own first page."""
+    import os
+    from reportlab.lib.units import mm
+    from reportlab.lib.utils import simpleSplit
+    W, H = lay['size']; m = lay['margin_mm']
+    x0, width = m + 6, W - 2 * (m + 6)
+    y = m + lay['marker_mm'] + 12
+    n = len(lay['sheets'])
+    try: folder = os.path.relpath(p.root)
+    except ValueError: folder = str(p.root)
+    if folder.startswith('..'): folder = str(p.root)
+
+    def text(s, size=9.5, font='Helvetica', gap=1.6, indent=0.0, colour=(0, 0, 0)):
+        nonlocal y
+        c.setFont(font, size); c.setFillColorRGB(*colour)
+        lead = size * 0.3528 * 1.35                        # line height in mm
+        for line in simpleSplit(s, font, size, (width - indent) * mm):
+            y += lead; c.drawString((x0 + indent) * mm, Y(y), line)
+        y += gap
+
+    def heading(s):
+        nonlocal y
+        y += 3; text(s, 11.5, 'Helvetica-Bold', gap=0.8)
+
+    def bullets(items):
+        for s in items:
+            c.setFont('Helvetica', 9.5); c.setFillColorRGB(0, 0, 0)
+            c.drawString(x0 * mm, Y(y + 9.5 * 0.3528 * 1.35), '•')
+            text(s, indent=4)
+
+    text('How to fill in this template', 20, 'Helvetica-Bold', gap=1)
+    text(f"{p.config['name']} · {n} writing sheets after this one · rev {lay['rev']}. This page isn't read "
+         "back, so print from page 2 if you don't need it.", 9.5, colour=(0.3, 0.3, 0.3), gap=2)
+
+    heading('1  Print, or write on screen')
+    bullets(['Any printer works, colour or black and white. '
+             + ('This copy has grey guide lines for black-and-white printers; template.pdf has pale blue ones.' if mono
+                else 'If the pale blue guide lines disappear on yours, print template-mono.pdf instead.'),
+             'Any scale is fine, but keep the whole page: all four black corner squares must print.',
+             'No printer? Write on this PDF with a stylus and export it.'])
+
+    heading('2  Write')
+    bullets(['Use the pen you want the font to look like. A black or dark felt tip reads best; '
+             'pencil and pale colours may not be picked up.',
+             'Each row is for the grey character at its left. Write it 5 to 8 times along the row. Every copy '
+             'is a candidate: you pick the keepers later, and the font cycles through them so repeated '
+             'letters vary.',
+             'Leave a clear gap between copies: ink that touches becomes one shape. The dots on i and j are fine.',
+             'Write naturally rather than precisely. Size and baseline are evened out, so the lines are a '
+             'guide, not a rule.',
+             'Made a mistake? Leave it and write another copy. You can reject any copy later.',
+             'Keep clear of the black squares and the small print at the foot of each sheet.',
+             'The last sheet has words: write each one under its prompt, as you normally would. It is kept '
+             'for spacing and, later, ligatures, so it is optional for now.'])
+
+    # the four lines, as they print on the sheets, drawn twice the size to fit their labels
+    y += 2
+    cap = 2 * lay['cap_mm']; xh, de = DEFAULTS['xheight'], DEFAULTS['descender']
+    sx0, sx1 = x0 + 4, x0 + 70
+    base = y + cap * 1.05
+    lines = [('cap', base - cap, (0.6, 2), 'Capitals and tall letters (b, d, h) reach the top line'),
+             ('x', base - cap * xh, (2, 2), 'a, n and x reach the dashed line'),
+             ('base', base, None, 'Everything sits on the solid baseline'),
+             ('desc', base + cap * de, (0.6, 2), 'g, p and y drop to the bottom line')]
+    for _, ly, dash, label in lines:
+        c.setStrokeColorRGB(*guide); c.setLineWidth(GUIDE_MM * mm)
+        if dash: c.setDash(*[v * mm for v in dash])
+        else: c.setDash()
+        c.line(sx0 * mm, Y(ly), sx1 * mm, Y(ly))
+        c.setDash(); c.setFont('Helvetica', 8.5); c.setFillColorRGB(0.25, 0.25, 0.25)
+        c.drawString((sx1 + 3) * mm, Y(ly + 1), label)
+    y = base + cap * de + 4
+
+    heading('3  Photograph')
+    bullets(['One sheet per photo, lying flat, in even light with no shadows across it.',
+             'Get the whole page in, with all four corner squares. An angle is fine: the squares correct it.',
+             'Fill the frame. You get a warning if a capital comes out under 120 pixels tall.',
+             'Wrote on the PDF? Use the exported PDF as it is; there is nothing to photograph.'])
+
+    heading('4  Bring it in')
+    for cmd, what in ((f'budget-foundry add {folder} <photos or PDF>', 'copies them into the project'),
+                      (f'budget-foundry segment {folder}', 'reads each sheet and finds every copy'),
+                      (f'budget-foundry serve {folder}', 'opens the app: choose keepers, then build the font')):
+        c.setFont('Courier', 9); c.setFillColorRGB(0, 0, 0)
+        y += 9 * 0.3528 * 1.35; c.drawString(x0 * mm, Y(y), cmd)
+        text(what, 8.5, colour=(0.3, 0.3, 0.3), indent=4, gap=1.2)
+
+
 # ---- geometry for import
 
 def find_sheet(p: Project, gray: np.ndarray):
-    """Detect markers; return (layout, sheet index, homography image→mm, report) or None."""
+    """Detect markers; return (layout, sheet index, homography image→mm, report) or None.
+    The guide page returns (layout, GUIDE, None, {})."""
     det = cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(ARUCO), cv2.aruco.DetectorParameters())
     corners, ids, _ = det.detectMarkers(gray)
     if ids is None: return None
@@ -160,7 +259,9 @@ def find_sheet(p: Project, gray: np.ndarray):
     by_sheet = {}
     for i in found:
         if i < REV_BASE: by_sheet.setdefault(i // 4, []).append(i)
-    if not by_sheet: return None
+    if not by_sheet:
+        # The revision marker alone is the guide page: instructions, nothing to read
+        return (lay, GUIDE, None, {}) if lay['rev_marker'] in found else None
     n, ids_ = max(by_sheet.items(), key=lambda kv: len(kv[1]))
     if len(ids_) < 3 or n >= len(lay['sheets']): return None
     mm = marker_corners_mm(lay)
