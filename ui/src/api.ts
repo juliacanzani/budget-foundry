@@ -57,8 +57,9 @@ async function json<T>(res: Response): Promise<T> {
 export const api = {
   project: () => fetch('/api/project').then((r) => json<Project>(r)),
   glyphs: () => fetch('/api/glyphs').then((r) => json<Glyph[]>(r)),
+  // By codepoint: a '.' or '/' in the path would be eaten by URL resolution
   choose: (char: string, keep: string[], def: string | null) =>
-    fetch(`/api/glyphs/${encodeURIComponent(char)}`, {
+    fetch(`/api/glyphs/U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keep, default: def }),

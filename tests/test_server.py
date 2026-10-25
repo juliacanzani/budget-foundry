@@ -38,29 +38,36 @@ def test_choosing_writes_decisions_with_provenance(client):
     c, p = client
     ids = [k['id'] for k in c.get('/api/glyphs').json()[0]['candidates']]
     ch = c.get('/api/glyphs').json()[0]['char']
-    r = c.put(f'/api/glyphs/{ch}', json={'keep': ids[:3], 'default': ids[2]})
+    r = c.put(f'/api/glyphs/U+{ord(ch):04X}', json={'keep': ids[:3], 'default': ids[2]})
     assert r.status_code == 200
     d = json.loads((p.root / 'decisions.json').read_text())['glyphs'][ch]
     assert d == {'keep': ids[:3], 'default': ids[2], 'source': 'human'}
-    assert c.put(f'/api/glyphs/{ch}', json={'keep': ['nope']}).status_code == 422
-    assert c.put(f'/api/glyphs/{ch}', json={'keep': ids[:1], 'default': ids[2]}).status_code == 422
+    assert c.put(f'/api/glyphs/U+{ord(ch):04X}', json={'keep': ['nope']}).status_code == 422
+    assert c.put(f'/api/glyphs/U+{ord(ch):04X}', json={'keep': ids[:1], 'default': ids[2]}).status_code == 422
 
 
+
+
+def test_characters_that_are_path_syntax_can_be_chosen(client):
+    c, p = client
+    assert c.put('/api/glyphs/U+002E', json={'keep': []}).status_code == 200      # '.', which a path drops
+    assert c.put('/api/glyphs/U+002F', json={'keep': []}).status_code == 200      # '/'
+    assert c.put('/api/glyphs/nope', json={'keep': []}).status_code == 404
 
 def test_keeps_stop_at_what_the_font_cycles(client):
     c, p = client
     a = next(e for e in c.get('/api/glyphs').json() if e['char'] == 'A')
     ids = [k['id'] for k in a['candidates']]
     assert len(ids) == 6 and c.get('/api/project').json()['max_keep'] == 4
-    assert c.put('/api/glyphs/A', json={'keep': ids[:5]}).status_code == 422
+    assert c.put('/api/glyphs/U+0041', json={'keep': ids[:5]}).status_code == 422
     # an older decisions file can be over; the preview says which, and shrinking is allowed
     f = p.root / 'decisions.json'; d = json.loads(f.read_text())
     d['glyphs']['A'] = {'keep': ids, 'default': ids[0], 'source': 'human'}; f.write_text(json.dumps(d))
     r = c.get('/api/preview', params={'text': 'A'})
     assert r.status_code == 409 and 'A (6)' in r.json()['detail']
     assert c.get('/api/glyphs').status_code == 200
-    assert c.put('/api/glyphs/A', json={'keep': ids[:5]}).status_code == 200
-    assert c.put('/api/glyphs/A', json={'keep': ids[:3]}).status_code == 200
+    assert c.put('/api/glyphs/U+0041', json={'keep': ids[:5]}).status_code == 200
+    assert c.put('/api/glyphs/U+0041', json={'keep': ids[:3]}).status_code == 200
     assert c.get('/api/preview', params={'text': 'A'}).status_code == 200
 
 def test_preview_cycles_and_reports_missing(client):
@@ -69,7 +76,7 @@ def test_preview_cycles_and_reports_missing(client):
     for e in g:
         if not e['keep'] and e['candidates'] and e['char'] not in '‘’':
             ids = [k['id'] for k in e['candidates']][:3]
-            c.put(f"/api/glyphs/{e['char']}", json={'keep': ids})
+            c.put(f"/api/glyphs/{e['codepoint']}", json={'keep': ids})
     r = c.get('/api/preview', params={'text': 'AAA DEF xyz'}).json()
     names = [x['name'] for x in r['glyphs']]
     assert names[:3] == ['uni0041', 'uni0041.alt1', 'uni0041.alt2'] or len(set(names[:3])) == 3

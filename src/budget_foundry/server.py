@@ -170,8 +170,11 @@ def create_app(root: Path, log=print) -> FastAPI:
         p = st.p; d = p.load_decisions()
         return [entry(ch, d) for ch in char_order(p)]
 
-    @app.put('/api/glyphs/{char}')
-    def choose(char: str, body: GlyphChoice):
+    # By codepoint (U+002E), not the character: '.' and '/' don't survive as path segments
+    @app.put('/api/glyphs/{codepoint}')
+    def choose(codepoint: str, body: GlyphChoice):
+        try: char = chr(int(codepoint.removeprefix('U+'), 16))
+        except ValueError: raise HTTPException(404, f'not a codepoint: {codepoint!r}')
         with st.lock:
             p = st.p; d = p.load_decisions()
             valid = {r for r, g in st.norm['glyphs'].items() if g['ch'] == char}
