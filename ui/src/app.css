@@ -49,27 +49,30 @@ html, body { margin: 0; }
 .stages__name { display: grid; line-height: 1.25; }
 .stages__note { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-weight: 400; }
 
-/* desktop rail */
-.rail { grid-area: rail; inline-size: 15rem; box-sizing: border-box; border-inline-end: 1px solid var(--tui-color-border); padding: var(--tui-spacing-sm); }
-.rail__inner { display: grid; gap: var(--tui-spacing-xs); position: sticky; top: var(--tui-spacing-sm); }
-.rail__toggle { justify-self: end; }
+/* desktop rail: TUI's Sidebar, collapsible. Sticky, so the stages stay in view while culling. */
+.rail {
+  grid-area: rail; --tui-sidebar-width: 15rem; --tui-sidebar-padding: var(--tui-spacing-sm);
+  --tui-sidebar-bg: var(--tui-color-bg);
+  position: sticky; top: 0; align-self: start; block-size: 100dvh; overflow-y: auto;
+}
+.rail > .stages { padding: var(--tui-sidebar-padding); }
 /* Collapsed: a column of rings. The names are visually hidden, so screen readers keep them. */
-.rail.is-collapsed { inline-size: auto; }
-.rail.is-collapsed .rail__toggle { justify-self: center; }
-.rail.is-collapsed .stages li { grid-template-columns: 1rem; justify-content: center; min-block-size: 1.5rem; }
-.rail.is-collapsed .stages__name {
+.rail[data-collapsed='true'] > .stages { padding-inline: 0; }
+.rail[data-collapsed='true'] .stages li { grid-template-columns: 1rem; justify-content: center; min-block-size: 1.5rem; }
+.rail[data-collapsed='true'] .stages__name {
   position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* phone sheet: TUI's Modal, docked to the inline start at full height */
+/* phone drawer: TUI's Sidebar in drawer mode */
 .stages-menu { display: none; }
-.tui-modal:has(> .stages-sheet) { --tui-modal-spacing: 0; justify-content: flex-start; }
-.stages-sheet.tui-modal__dialog {
-  --tui-modal-max: min(20rem, 85vw); --tui-modal-radius: 0;
-  block-size: 100dvh; max-block-size: none; margin-block: 0;
-  border-start-end-radius: var(--tui-radius-lg); border-end-end-radius: var(--tui-radius-lg);
-}
-.stages-sheet h2 { margin: 0; font-size: 1.25rem; }
+.stages-drawer { --tui-sidebar-width: min(20rem, 85vw); }
+/* Workaround, TUI 0.2.30: the drawer's slide-in ending runs its dismiss, which sends focus
+   back to the trigger while the drawer stays open. With no animation it takes its
+   reduced-motion path, which is right. Drop this once that's fixed upstream. */
+.tui-sidebar-drawer__panel:has(> .stages-drawer) { animation: none; }
+.stages-drawer .tui-sidebar__header { flex-direction: row; align-items: center; justify-content: space-between; }
+.stages-drawer h2 { font-size: 1.25rem; }
+.stages-drawer > .stages { padding: var(--tui-sidebar-padding, var(--tui-spacing-md)); overflow-y: auto; }
 
 /* glyph art */
 .glyph-art { display: block; overflow: visible; }

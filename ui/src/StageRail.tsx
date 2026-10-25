@@ -1,6 +1,6 @@
-import { useEffect, useId, useState } from 'react';
-import { ContentIndicator, IconButton, Modal, StepIndicator } from '@tangible/ui';
-import { Redo, SidebarCollapse, SidebarExpand } from '@tangible/ui/icons/system/index.js';
+import { useEffect, useState } from 'react';
+import { ContentIndicator, IconButton, Sidebar, StepIndicator } from '@tangible/ui';
+import { Close, Redo, SidebarExpand } from '@tangible/ui/icons/system/index.js';
 import type { Stage } from './api';
 
 // The spec's ten stages. Only culling has a screen so far; the rest run from the CLI.
@@ -71,34 +71,30 @@ function readCollapsed() {
   try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
 }
 
-/** The desktop sidebar. Collapsed keeps the rings; the names stay in the accessibility
-    tree, only hidden from view. Phones get StagesMenu instead (app.css swaps them). */
+/** The desktop sidebar. The list sits straight in the Sidebar, not in its Nav, so it survives
+    the collapse as a column of rings; the names are hidden from view only, so screen readers
+    keep them. Phones get StagesMenu instead (app.css swaps them). */
 export function StageRail(props: Props) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const toggle = () => {
-    setCollapsed(!collapsed);
-    try { if (collapsed) localStorage.removeItem(COLLAPSED_KEY); else localStorage.setItem(COLLAPSED_KEY, '1'); } catch { /* not saved */ }
+  const onCollapsedChange = (next: boolean) => {
+    setCollapsed(next);
+    try { if (next) localStorage.setItem(COLLAPSED_KEY, '1'); else localStorage.removeItem(COLLAPSED_KEY); } catch { /* not saved */ }
   };
   return (
-    <nav className={`rail${collapsed ? ' is-collapsed' : ''}`} aria-label="Stages">
-      <div className="rail__inner">
-        <IconButton className="rail__toggle" icon={collapsed ? SidebarExpand : SidebarCollapse}
-          label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} showTooltip tooltipSide="right"
-          variant="ghost" size="sm" onClick={toggle} />
-        <StageList {...props} />
-      </div>
-    </nav>
+    <Sidebar className="rail" aria-label="Stages" collapsible collapsed={collapsed} onCollapsedChange={onCollapsedChange}>
+      <Sidebar.Toggle showTooltip tooltipSide="right" variant="ghost" size="sm" />
+      <StageList {...props} />
+    </Sidebar>
   );
 }
 
 // Where the rail gives way to the menu; matches the breakpoint in app.css
 const NARROW = '(max-width: 52rem)';
 
-/** Phones: the header button and the stages in a sheet from the inline start. */
+/** Phones: the header button, and the stages in Sidebar's drawer. */
 export function StagesMenu(props: Props) {
   const [open, setOpen] = useState(false);
-  const titleId = useId();
-  // Widening the window brings the rail back, so the sheet has nothing left to do
+  // Widening the window brings the rail back, so the drawer has nothing left to do
   useEffect(() => {
     const mq = window.matchMedia(NARROW);
     const on = () => { if (!mq.matches) setOpen(false); };
@@ -109,10 +105,14 @@ export function StagesMenu(props: Props) {
     <>
       <IconButton className="stages-menu" icon={SidebarExpand} label="Stages" showTooltip tooltipSide="bottom"
         variant="ghost" size="sm" aria-haspopup="dialog" onClick={() => setOpen(true)} />
-      <Modal open={open} onClose={() => setOpen(false)} aria-labelledby={titleId} className="stages-sheet" showCloseButton>
-        <Modal.Head><h2 id={titleId}>Stages</h2></Modal.Head>
-        <Modal.Body><StageList {...props} /></Modal.Body>
-      </Modal>
+      <Sidebar drawer open={open} onClose={() => setOpen(false)} position="left" aria-label="Stages" className="stages-drawer">
+        <Sidebar.Header>
+          <h2>Stages</h2>
+          <IconButton className="stages-drawer__close" icon={Close} label="Close" variant="ghost" size="sm" onClick={() => setOpen(false)} />
+        </Sidebar.Header>
+        {/* Not Sidebar.Nav: nothing here navigates, it's a status list */}
+        <StageList {...props} />
+      </Sidebar>
     </>
   );
 }
