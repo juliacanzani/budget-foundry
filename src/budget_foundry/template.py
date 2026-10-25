@@ -32,8 +32,37 @@ GUIDE = 'guide'                                        # find_sheet's sheet inde
 GUIDE_PAGES = 1                                        # PDF pages before sheet 0
 GUIDE_COLOUR = {'colour': (0.55, 0.85, 0.93), 'mono': (0.72, 0.72, 0.72)}   # pale cyan, light grey
 GUIDE_MM = 0.3
+# Printed under the character in the margin, where its shape alone could be any of several:
+# a name, and where length or height is the question, the character in a word
+NAMES = {
+    'I': ('capital i', None), 'l': ('small L', None), 'O': ('capital o', None), '0': ('zero', None), '1': ('one', None),
+    '.': ('full stop', None), ',': ('comma', None), ':': ('colon', None), ';': ('semicolon', None),
+    '…': ('ellipsis', 'so…'), '!': ('exclamation', None), '?': ('question', None),
+    "'": ('straight quote', "it's"), '"': ('straight double', '"hi"'),
+    '“': ('open double', '“hi”'), '”': ('close double', '“hi”'),
+    '‘': ('open single', '‘hi’'), '’': ('apostrophe', 'it’s'),
+    '-': ('hyphen', 'well-made'), '–': ('en dash', '9–5'), '—': ('em dash', 'wait—no'), '_': ('underscore', 'utm_source'),
+    '(': ('open paren', None), ')': ('close paren', None), '[': ('open bracket', None), ']': ('close bracket', None),
+    '{': ('open brace', None), '}': ('close brace', None), '<': ('less than', None), '>': ('greater than', None),
+    '«': ('open guillemet', '«oui»'), '»': ('close guillemet', '«oui»'), '/': ('slash', 'and/or'),
+    '\\': ('backslash', None), '|': ('vertical bar', None), '+': ('plus', None), '=': ('equals', None),
+    '×': ('times', '3×4'), '÷': ('divide', '8÷2'), '%': ('percent', '50%'), '*': ('asterisk', None),
+    '#': ('hash', None), '@': ('at', None), '&': ('ampersand', None), '~': ('tilde', '~5'),
+}
 WORDS = ['nanbncndnenfngnhninjnknlnmnonpnqnrnsntnunvnwnxnynzn', 'Hamburgevons', 'HAMBURGEFONSTIV',
          'little better coffee the other', 'The quick brown fox jumps over the lazy dog.']
+
+
+def wrap(text: str, n: int) -> list[str]:
+    """Greedy lines of at most n characters, breaking at spaces; a longer word is cut into
+    even lengths, so an "nanbn" run keeps each letter beside an n."""
+    n -= n % 2
+    lines, line = [], ''
+    for w in text.split():
+        while len(w) > n: lines += [line] if line else []; line = ''; lines.append(w[:n]); w = w[n:]
+        if line and len(line) + 1 + len(w) > n: lines.append(line); line = w
+        else: line = f'{line} {w}'.strip()
+    return lines + ([line] if line else [])
 
 
 def settings(p: Project) -> dict:
@@ -55,7 +84,8 @@ def layout(p: Project) -> dict:
     def row(y_top, label, char=None, text=None):
         base = y_top + cap * 1.15                          # room above the cap line for ascenders
         r = dict(label=label, base=base, cap=base - cap, x=base - cap * s['xheight'],
-                 desc=base + cap * s['descender'], top=y_top, bottom=y_top + pitch, x0=x0, x1=x1, label_x=(m + x0) / 2)
+                 desc=base + cap * s['descender'], top=y_top, bottom=y_top + pitch, x0=x0 if text is None else m, x1=x1,
+                 label_x=(m + x0) / 2)
         if char is not None: r['char'] = char
         if text is not None: r['text'] = text
         return r
@@ -64,10 +94,13 @@ def layout(p: Project) -> dict:
     for i in range(0, len(chars), per_sheet):
         rows = [row(top + j * pitch, c, char=c) for j, c in enumerate(chars[i:i + per_sheet])]
         sheets.append(dict(kind='chars', rows=rows))
-    words = [w for w in p.config.get('template', {}).get('words', WORDS)]
+    # Words rows run the full width, with their prompt above; a long one goes over several rows,
+    # at about 0.6 cap per handwritten character
+    per_row = int((x1 - m) / (cap * 0.6))
+    words = [line for w in p.config.get('template', {}).get('words', WORDS) for line in wrap(w, per_row)]
     sheets.append(dict(kind='words', rows=[row(top + j * pitch, w, text=w) for j, w in enumerate(words[:per_sheet])]))
     for n, sh in enumerate(sheets): sh['index'] = n
-    body = dict(paper=s['paper'], size=[W, H], marker_mm=mk, margin_mm=m, cap_mm=cap, sheets=sheets)
+    body = dict(paper=s['paper'], size=[W, H], marker_mm=mk, margin_mm=m, cap_mm=cap, label_mm=s['label_mm'], sheets=sheets)
     rev = fingerprint('template', body)[:6]
     return dict(rev=rev, rev_marker=REV_BASE + int(rev, 16) % REV_SPAN, **body)
 
@@ -144,11 +177,14 @@ def write_pdf(p: Project, out: Path, mono: bool = False) -> tuple[Path, dict]:
             if sh['kind'] == 'chars':
                 c.setFont(font, lay['cap_mm'] * 0.7 / 0.3528)  # points from mm
                 c.drawCentredString(r['label_x'] * mm, Y(r['base']), r['label'])
-                c.setFont(font, 5.5)
-                c.drawCentredString(r['label_x'] * mm, Y(r['desc'] + 1.5), f"U+{ord(r['label']):04X}")
-            else:
-                c.setFont(font, 7)
-                c.drawString(r['x0'] * mm, Y(r['top'] + 2.5), r['label'])
+                name, example = NAMES.get(r['label'], (None, None))
+                for line, dy in ((name, 2), (example, 4.6)):
+                    if not line: continue
+                    size = min(6.5, 6.5 * (lay['label_mm'] - 2) * mm / c.stringWidth(line, font, 6.5))
+                    c.setFont(font, size); c.drawCentredString(r['label_x'] * mm, Y(r['desc'] + dy), line)
+            else:                                          # above the row, clear of tall letters
+                c.setFont(font, 8)
+                c.drawString(r['x0'] * mm, Y(r['cap'] - 1.2), r['label'])
         c.showPage()
     c.save()
     return out, lay
@@ -199,7 +235,9 @@ def guide_page(c, p: Project, lay: dict, guide, Y, mono: bool) -> None:
     heading('2  Write')
     bullets(['Use the pen you want the font to look like. A black or dark felt tip reads best; '
              'pencil and pale colours may not be picked up.',
-             'Each row is for the grey character at its left. Write it 5 to 8 times along the row. Every copy '
+             'Each row is for the grey character at its left; symbols are named under it, with an example '
+             'where size or length matters (a hyphen is short, an em dash long). Write it 5 to 8 times along '
+             'the row. Every copy '
              'is a candidate: you pick the keepers later, and the font cycles through them so repeated '
              'letters vary.',
              'Leave a clear gap between copies: ink that touches becomes one shape. The dots on i and j are fine.',
@@ -207,7 +245,8 @@ def guide_page(c, p: Project, lay: dict, guide, Y, mono: bool) -> None:
              'guide, not a rule.',
              'Made a mistake? Leave it and write another copy. You can reject any copy later.',
              'Keep clear of the black squares and the small print at the foot of each sheet.',
-             'The last sheet has words: write each one under its prompt, as you normally would. It is kept '
+             'The last sheet has words: write each line under its prompt, as you normally would; a long one '
+             'carries on to the next row. It is kept '
              'for spacing and, later, ligatures, so it is optional for now.'])
 
     # the four lines, as they print on the sheets, drawn twice the size to fit their labels

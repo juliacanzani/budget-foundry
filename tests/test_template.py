@@ -150,3 +150,8 @@ def test_char_from_file_name():
     assert char_from_name('uni00DF') == 'ß'
     assert char_from_name('question-1') == '?'
     assert char_from_name('IMG_3521') is None
+
+
+def test_long_words_wrap_onto_rows():
+    assert template.wrap('The quick brown fox jumps over the lazy dog.', 33) == ['The quick brown fox jumps over', 'the lazy dog.']
+    assert template.wrap('nanbncndnenf', 7) == ['nanbnc', 'ndnenf']    # even cuts keep each letter beside an n

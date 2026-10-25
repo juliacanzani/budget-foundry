@@ -67,9 +67,9 @@ Ten stages, each with a status (not run, stale, done) that goes stale when anyth
 1. **Template.** Generate a printable PDF from the charset.
    - A guide page first: how to print, write, photograph and import. It carries the revision marker and no corner markers, so import recognises and skips it, and anyone who doesn't want it prints from page 2.
    - Guide lines for baseline, x-height, cap height and descender, pale cyan for colour printers or light grey for mono ones. Import removes them by position (once the markers are found it knows where every guide sits) and by lightness, so a colour printer is never required.
-   - One character per row, labelled in the margin in the guide colour. Rows are long enough for 8 repeats, spaced so letters don't touch.
+   - One character per row, labelled in the margin in the guide colour. Symbols and look-alikes (I, l, 0, O) are named under the label, and where length or height is the question (hyphen, en and em dash, underscore, quotes) shown in a word. Rows are long enough for 8 repeats, spaced so letters don't touch.
    - Four ArUco markers in the corners plus a sheet code, so import knows the sheet, its row order and its scale.
-   - A words page ("nanbncn" sequences, **Hamburgevons**, a pangram, the user's own phrases) for spacing reference and in-context harvesting. Seeded with words containing common pairs (little, better, coffee, the other) so ligature candidates turn up naturally. An optional ligature page takes pairs written on purpose.
+   - A words page ("nanbncn" sequences, **Hamburgevons**, a pangram, the user's own phrases) for spacing reference and in-context harvesting. Its rows run the full width with the prompt above the cap line, clear of tall letters; a long phrase wraps onto the next row. Seeded with words containing common pairs (little, better, coffee, the other) so ligature candidates turn up naturally. An optional ligature page takes pairs written on purpose.
    - A marks page for accents: acute, grave, circumflex, diaeresis, cedilla, tilde, ring, plus œ, æ, ß.
 2. **Import.** Drag in HEIC, JPG, PNG or PDF.
    - Detect markers, correct perspective, flat-field the lighting, remove the guides by position, threshold. Works the same on colour and grayscale prints.
