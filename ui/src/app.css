@@ -67,8 +67,9 @@ html, body { margin: 0; }
 /* phone drawer: TUI's Sidebar in drawer mode */
 .stages-menu { display: none; }
 .stages-drawer { --tui-sidebar-width: min(20rem, 85vw); }
+/* Sidebar.Header in the drawers, as a row: title and close */
 .drawer-head {
-  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-shrink: 0;
   padding: var(--tui-sidebar-padding, var(--tui-spacing-md)); border-bottom: 1px solid var(--tui-color-divider);
 }
 .drawer-head h2 { margin: 0; font-size: 1.25rem; }

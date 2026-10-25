@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tangible/ui": "0.2.31",
+    "@tangible/ui": "0.2.32",
     "@tanstack/react-query": "^5.90.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"

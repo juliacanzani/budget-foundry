@@ -141,10 +141,10 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
       </aside>
       {/* Phones: the inspector as a drawer from the right, opened from a tile */}
       <Sidebar drawer open={drawer} onClose={() => setDrawer(false)} position="right" aria-label="Inspector" className="inspector-drawer">
-        <div className="drawer-head">
+        <Sidebar.Header className="drawer-head">
           <h2>Inspector</h2>
           <IconButton icon={Close} label="Close" variant="ghost" size="sm" onClick={() => setDrawer(false)} />
-        </div>
+        </Sidebar.Header>
         <div className="inspector-drawer__body">
           <Inspector glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
         </div>

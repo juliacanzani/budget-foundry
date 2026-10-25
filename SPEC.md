@@ -262,7 +262,7 @@ Not yet in a milestone, or follow-ups from using it. Newest asks first within ea
 - [ ] Words-page harvesting: the page is kept for reference only; spacing and ligature candidates come from it later.
 
 **Upstream (Tangible UI).**
-- [ ] Drawer heading back to `Sidebar.Header` once TUI PR #158 is released (it makes Header and Footer plain `div`s).
+- [x] Drawer heading back to `Sidebar.Header` (TUI 0.2.32 makes Header and Footer plain `div`s).
 - [ ] Once TUI's StepIndicator branch ships: move the stage list to non-interactive `StepList`, drop the `--bf-ring` override for the track token, and use `attention` for stale stages instead of the ContentIndicator.
 
 ## Open questions and assumptions
