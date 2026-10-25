@@ -52,6 +52,10 @@ DEFAULTS = dict(
                  min_sidebearing=0.12, dot_sidebearing=0.35),
 )
 METRIC_KEYS = ('UPM', 'CAP', 'OS', 'U', 'XH', 'DESC', 'DOT', 'AX')
+# Per-candidate corrections in decisions.json overrides, and the value that means none:
+# baseline in font units (up), rotate in degrees (anticlockwise), scale a factor on the
+# normalised size, weight in stroke widths added to the pen
+CORRECTIONS = dict(baseline=0.0, rotate=0.0, scale=1.0, weight=0.0)
 
 
 def settings(p: Project) -> dict:
@@ -69,7 +73,8 @@ def _component_decisions(p: Project, d: dict) -> dict:
 def normalise_fp(p: Project) -> str:
     d = p.load_decisions()
     return fingerprint('normalise', code_fp(sys.modules[__name__]), segment.stage_fp(p), settings(p),
-                       p.config.get('targets', {}), p.charset, d['overrides']['baseline'], _component_decisions(p, d))
+                       p.config.get('targets', {}), p.charset, {k: d['overrides'][k] for k in CORRECTIONS},
+                       _component_decisions(p, d))
 
 
 def stage_fp(p: Project) -> str:
@@ -215,6 +220,11 @@ class Builder:
             if ch not in P: continue
             med = np.median([self.hu(i) for i in P[ch]])
             for i in P[ch]: self.FACT[i] = T0 * (self.hu(i) / med) ** n['height_variation'] / self.hu(i)
+        for i, k in self.decisions['overrides']['scale'].items():
+            if i in self.FACT: self.FACT[i] *= k
+
+    def correction(self, i, kind):
+        return self.decisions['overrides'][kind].get(i, CORRECTIONS[kind])
 
     def mask_of(self, i, comp=None):
         g = self.cands[i]; k = g['sheet']; SWk = self.SW[k]; p = int(SWk)
@@ -224,10 +234,18 @@ class Builder:
         ids = g['ids'] if comp is None else [comp]
         m = np.isin(lab[y0:y1, x0:x1], ids).astype(np.float32)
         f = self.FACT.get(i, 1.0) if comp is None else 1.0
+        rot = self.correction(i, 'rotate') if comp is None else 0.0
+        if rot:                                    # about the glyph's middle; placing re-seats it
+            q = int(0.3 * max(m.shape)) + 2
+            m = np.pad(m, q); x0 -= q; y0 -= q
+            M = cv2.getRotationMatrix2D(((m.shape[1] - 1) / 2, (m.shape[0] - 1) / 2), rot, 1.0)
+            m = cv2.warpAffine(m, M, (m.shape[1], m.shape[0]), flags=cv2.INTER_LINEAR)
         n = self.s['normalise']; lo, hi = n['weight_clip']
         wt = 1 + n['weight_share'] * (float(np.clip(g['wt'], lo, hi)) - 1)
-        # keep the pen weight through scaling: dilate/erode by stroke × (1/f − wt) / 2
-        r = 0 if g['ch'] in self.DOTS else SWk * (1 / f - wt) / 2
+        # keep the pen weight through scaling: dilate/erode by stroke × (1/f − wt) / 2,
+        # plus any weight correction (w stroke widths in the font is w × stroke / f here)
+        extra = self.correction(i, 'weight') if comp is None else 0.0
+        r = (0 if g['ch'] in self.DOTS else SWk * (1 / f - wt) / 2) + SWk * extra / (2 * f)
         if abs(r) >= 1:
             m = np.pad(m, int(abs(r)) + 2); x0 -= int(abs(r)) + 2; y0 -= int(abs(r)) + 2
             ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * int(round(abs(r))) + 1,) * 2)
@@ -241,7 +259,8 @@ class Builder:
         return fingerprint('trace', self.code, imports[g['sheet']], self.SW[g['sheet']], comp,
                            {k: g[k] for k in ('x', 'y', 'w', 'h', 'ids', 'base', 'wt', 'ch')},
                            self.FACT.get(i, 1.0) if comp is None else 1.0, g['ch'] in self.DOTS,
-                           n['weight_share'], n['weight_clip'], self.s['trace'])
+                           n['weight_share'], n['weight_clip'], self.s['trace'],
+                           None if comp is not None else [self.correction(i, k) for k in ('rotate', 'weight')])
 
     def trace_px(self, i, comp):
         """Trace one candidate. Geometry in sheet pixels, y up from its baseline; font units
@@ -295,6 +314,11 @@ class Builder:
         G, CAP, XH, OS = self.G, self.CAP, self.XH, self.OS
         n, pl = self.s['normalise'], self.s['placement']
         classof = lambda ch: [g for g in G.values() if g['ch'] == ch]
+        # medians from uncorrected glyphs where there are any, so correcting one never moves its siblings
+        ov = self.decisions['overrides']
+        def ref(gs):
+            plain = [g for g in gs if not any(g['src'] in ov[k] for k in ('rotate', 'scale', 'weight'))]
+            return plain or gs
         def place_bottom(ch, t):
             for g in classof(ch): g['dy'] = t - g['ymin']
         def place_top(ch, t):
@@ -305,19 +329,19 @@ class Builder:
         for ch in self.work_drawn:
             gs = classof(ch)
             if ch.isalnum() and ch not in DESC_C:
-                m = np.median([g['ymin'] for g in gs]); t = -OS if ch in ROUND_BOT else 0
+                m = np.median([g['ymin'] for g in ref(gs)]); t = -OS if ch in ROUND_BOT else 0
                 for g in gs: g['dy'] = t - g['ymin'] + float(np.clip(b * (g['ymin'] - m), -bc, bc))
             elif ch == 'j':                       # align to the i, keep some bounce
-                itop = np.median([q['ymax'] for q in classof('i')]); m = np.median([q['ymax'] for q in gs])
+                itop = np.median([q['ymax'] for q in ref(classof('i'))]); m = np.median([q['ymax'] for q in ref(gs)])
                 for g in gs: g['dy'] = itop - m - b * (g['ymax'] - m)
             elif ch in 'gpqy':                    # bowl top on the x-height
-                m = np.median([g['ymax'] for g in gs])
+                m = np.median([g['ymax'] for g in ref(gs)])
                 for g in gs: g['dy'] = XH + OS - m - b * (g['ymax'] - m)
             elif ch in DESC_C:                    # Q: top on the cap height
-                d = CAP - np.median([q['ymax'] for q in gs])
+                d = CAP - np.median([q['ymax'] for q in ref(gs)])
                 for g in gs: g['dy'] = d
-        dots = [g['ymax'] - g['ymin'] for g in classof('.')]
-        descs = [g['ymin'] + g['dy'] for c in 'gpqy' for g in classof(c)]
+        dots = [g['ymax'] - g['ymin'] for g in ref(classof('.'))]
+        descs = [g['ymin'] + g['dy'] for c in 'gpqy' for g in ref(classof(c))]
         self.DOT = np.median(dots) if dots else self.U                # a dot is about a stroke across
         self.DESC = -np.median(descs) if descs else CAP * DESCENDER_RATIO
         for ch in '.…!?%#&:': place_bottom(ch, 0)
@@ -488,9 +512,11 @@ def normalised_path(p: Project):
     return p.root / 'normalised' / 'glyphs.json'
 
 
-def run_normalise(p: Project, log=print) -> dict:
-    """Normalise every candidate against all candidates of its class (stage 4, 6, 7)."""
+def run_normalise(p: Project, log=print, cache: TraceCache | None = None) -> dict:
+    """Normalise every candidate against all candidates of its class (stage 4, 6, 7).
+    Pass a long-lived cache (the server's) to keep read outlines in memory between runs."""
     b = Builder(p, log, work='candidates')
+    if cache is not None: b.cache = cache
     b.normalise(); b.trace(); b.place(); b.space()
     b.cache.prune(b.trace_keys)
     out = normalised_path(p); out.parent.mkdir(exist_ok=True)

@@ -1,6 +1,8 @@
 """The local API: reads stage outputs, writes only decisions.json, previews with HarfBuzz."""
 import json
+import re
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
@@ -97,3 +99,39 @@ def test_source_tile(client):
     cid = c.get('/api/glyphs').json()[0]['candidates'][0]['id']
     r = c.get(f'/api/candidates/{cid}/source.png')
     assert r.status_code == 200 and r.headers['content-type'] == 'image/png'
+
+
+def nums(path):
+    return np.array([float(v) for v in re.findall(r'-?\d+\.?\d*', path)])
+
+
+def test_corrections_reshape_one_candidate_and_undo_cleanly(client):
+    c, p = client
+    a = next(e for e in c.get('/api/glyphs').json() if e['char'] == 'A')
+    cid = a['candidates'][0]['id']; before = a['candidates'][0]
+    others = {x['id']: x['path'] for x in a['candidates'][1:]}
+    assert before['corrections'] == {'baseline': 0, 'rotate': 0, 'scale': 1, 'weight': 0}
+    r = c.put(f'/api/candidates/{cid}/corrections', json={'set': {'scale': 0.8, 'rotate': 5}})
+    assert r.status_code == 200
+    after = next(x for x in r.json()['candidates'] if x['id'] == cid)
+    assert after['ymax'] - after['ymin'] < 0.9 * (before['ymax'] - before['ymin'])
+    # the others don't move: within half a unit (the class median now leaves the corrected one out)
+    for x in r.json()['candidates'][1:]:
+        assert np.allclose(nums(x['path']), nums(others[x['id']]), atol=0.5)
+    d = json.loads((p.root / 'decisions.json').read_text())['overrides']
+    assert d['scale'][cid] == 0.8 and d['rotate'][cid] == 5 and cid not in d['weight']
+    assert c.put(f'/api/candidates/{cid}/corrections', json={'set': {'scale': 3}}).status_code == 422
+    # undo: back to neutral, but only from the state it expects
+    assert c.put(f'/api/candidates/{cid}/corrections', json={'set': {}, 'expect': {}}).status_code == 409
+    r = c.put(f'/api/candidates/{cid}/corrections', json={'set': {}, 'expect': after['corrections']})
+    assert next(x for x in r.json()['candidates'] if x['id'] == cid)['path'] == before['path']
+
+
+def test_choosing_refuses_a_stale_expectation(client):
+    c, _ = client
+    g = next(e for e in c.get('/api/glyphs').json() if e['char'] == 'B')
+    ids = [k['id'] for k in g['candidates']]
+    c.put('/api/glyphs/U+0042', json={'keep': ids[:2]})
+    stale = {'keep': ids[:1], 'default': ids[0]}
+    assert c.put('/api/glyphs/U+0042', json={'keep': [], 'expect': stale}).status_code == 409
+    assert c.put('/api/glyphs/U+0042', json={'keep': [], 'expect': {'keep': ids[:2], 'default': ids[0]}}).status_code == 200

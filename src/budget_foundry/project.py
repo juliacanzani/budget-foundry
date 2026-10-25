@@ -52,7 +52,7 @@ SOURCES = ('human', 'ai', 'auto')
 
 def empty_decisions() -> dict:
     return dict(version=DECISIONS_VERSION, layout={}, labels={}, glyphs={},
-                overrides=dict(baseline={}, kern={}, kern_exclude=[]))
+                overrides=dict(baseline={}, rotate={}, scale={}, weight={}, kern={}, kern_exclude=[]))
 
 
 @dataclass

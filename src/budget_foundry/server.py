@@ -1,7 +1,9 @@
 """Local API for the UI: one process, one project, localhost only.
 
 Reads come from the stage outputs (candidates/, normalised/); the only writes are to
-decisions.json, and only through the glyph endpoint. Long jobs (build) run on a
+decisions.json, through the glyph and corrections endpoints. Both take an optional
+`expect`, the value the caller believes is current, so an undo never overwrites a change
+made elsewhere since. Long jobs (build) run on a
 worker thread and stream their log over server-sent events.
 """
 from __future__ import annotations
@@ -14,6 +16,7 @@ import threading
 from importlib import resources
 from pathlib import Path
 
+import numpy as np
 import uharfbuzz as hb
 from fastapi import FastAPI, HTTPException
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -26,9 +29,32 @@ from .project import Project, fingerprint
 from .template import WRITING_ORDER
 
 
-class GlyphChoice(BaseModel):
+class GlyphState(BaseModel):
     keep: list[str]
     default: str | None = None
+
+
+class GlyphChoice(GlyphState):
+    expect: GlyphState | None = None
+
+
+class Corrections(BaseModel):
+    baseline: float = build.CORRECTIONS['baseline']
+    rotate: float = build.CORRECTIONS['rotate']
+    scale: float = build.CORRECTIONS['scale']
+    weight: float = build.CORRECTIONS['weight']
+
+
+class CorrectionChange(BaseModel):
+    set: Corrections
+    expect: Corrections | None = None
+
+
+# Accepted range per correction, and how close counts as the same value
+LIMITS = dict(baseline=(-300, 300), rotate=(-45, 45), scale=(0.5, 2.0), weight=(-1.0, 1.0))
+CLOSE = dict(baseline=2, rotate=0.5, scale=0.01, weight=0.01)
+FIX_LABELS = {'floats': 'Lower to the baseline', 'drops': 'Raise to the baseline', 'small': 'Enlarge to match',
+              'large': 'Shrink to match', 'light': 'Thicken to match', 'heavy': 'Thin to match'}
 
 
 def svg_path(g: dict) -> str:
@@ -52,6 +78,7 @@ class State:
         self.jobs: dict[str, dict] = {}
         self.subscribers: list[queue.Queue] = []
         self._preview_key = None; self._preview = None; self._builder = None
+        self.trace_cache = build.TraceCache(self.root / 'normalised' / 'trace')
         self.refresh()
 
     @property
@@ -67,11 +94,49 @@ class State:
                 # v0 projects build from kept glyphs, but the cull view still needs every candidate drawn
                 p.config.setdefault('normalise', {})['reference'] = 'candidates'
             if not p.is_fresh(build.normalised_path(p).parent, build.normalise_fp(p)):
-                self.log('normalise'); build.run_normalise(p, self.log)
+                self.log('normalise'); build.run_normalise(p, self.log, cache=self.trace_cache)
             self.norm = json.loads(build.normalised_path(p).read_text())
             self.norm_fp = build.normalise_fp(p)
             self.cands, _ = segment.load(p)
             self._builder = None; self._preview_key = None
+
+    def corrections(self, d, cid) -> dict:
+        return {k: d['overrides'][k].get(cid, v) for k, v in build.CORRECTIONS.items()}
+
+    def fixes(self, ch, d) -> dict[str, list]:
+        """Per candidate of ch, a fix for each flag that has one: the correction that
+        brings it to its character's median, and whether that's already applied. A flag
+        that normalising already evens out (often weight) gets none. Slant rotates by the
+        measured difference: the measure isn't a true angle, so matching it exactly
+        overrotates bowls and crossbars; the slider is there to finish it."""
+        norm = {r: g for r, g in self.norm['glyphs'].items() if g['ch'] == ch and '#' not in r}
+        cs = [self.cands[r] for r in norm]
+        if len(cs) < 3: return {}
+        U = self.norm['metrics']['U']; n = build.settings(self.p)['normalise']; lo, hi = n['weight_clip']
+        eff = lambda c: 1 + n['weight_share'] * (float(np.clip(c['wt'], lo, hi)) - 1)
+        med_h = float(np.median([g['ymax'] - g['ymin'] for g in norm.values()]))
+        med_b = float(np.median([g['ymin'] for g in norm.values()]))
+        med_w = float(np.median([eff(c) for c in cs]))
+        sl = [c['slant'] for c in cs if c['slant'] is not None]; med_s = float(np.median(sl)) if sl else None
+        out = {}
+        for r, g in norm.items():
+            c = self.cands[r]; cur = self.corrections(d, r); fx = []
+            for flag in c['flags']:
+                if flag.startswith('slant') and med_s is not None and c['slant'] is not None:
+                    fx.append(dict(flag=flag, label='Straighten', set=dict(rotate=round(float(np.clip(c['slant'] - med_s, -15, 15)), 1))))
+                elif flag in ('floats', 'drops'):
+                    fx.append(dict(flag=flag, label=FIX_LABELS[flag], set=dict(baseline=round(cur['baseline'] - (g['ymin'] - med_b)))))
+                elif flag in ('small', 'large'):
+                    h = g['ymax'] - g['ymin']
+                    if h > U: fx.append(dict(flag=flag, label=FIX_LABELS[flag], set=dict(scale=round(cur['scale'] * (med_h - U) / (h - U), 3))))
+                elif flag in ('light', 'heavy'):
+                    fx.append(dict(flag=flag, label=FIX_LABELS[flag], set=dict(weight=round(med_w - eff(c), 3))))
+            def needed(x):
+                (k, v), = x['set'].items(); x['applied'] = abs(v - cur[k]) <= CLOSE[k]
+                return abs(v - build.CORRECTIONS[k]) > CLOSE[k] or not x['applied']   # a fix of nothing isn't one
+            fx = [x for x in fx if needed(x)]
+            if fx: out[r] = fx
+        return out
 
     def derived_by_component(self) -> set[str]:
         return {ch for ch, s in self.p.charset.get('derived', {}).items() if s.get('method') == 'component'}
@@ -138,12 +203,13 @@ def create_app(root: Path, log=print) -> FastAPI:
         e = d['glyphs'].get(ch, {})
         refs = [r for r, g in st.norm['glyphs'].items() if g['ch'] == ch]
         refs.sort(key=lambda r: st.cands[r.split('#')[0]].get('score', 0))
-        cands = []
+        cands = []; fixes = st.fixes(ch, d)
         for r in refs:
             g = st.norm['glyphs'][r]; c = st.cands[r.split('#')[0]]
             cands.append(dict(id=r, path=svg_path(g), advance=g['adv'], ymin=g['ymin'], ymax=g['ymax'],
                               flags=[] if '#' in r else c['flags'], score=c['score'],
-                              suggested=False if '#' in r else c['suggested'], sheet=c['sheet']))
+                              suggested=False if '#' in r else c['suggested'], sheet=c['sheet'],
+                              corrections=None if '#' in r else st.corrections(d, r), fixes=fixes.get(r, [])))
         keep, default, source = e.get('keep', []), e.get('default'), e.get('source')
         if not keep and ch in st.derived_by_component():
             try:
@@ -180,6 +246,10 @@ def create_app(root: Path, log=print) -> FastAPI:
             valid = {r for r, g in st.norm['glyphs'].items() if g['ch'] == char}
             bad = [i for i in body.keep if i not in valid]
             if bad: raise HTTPException(422, f'not candidates for {char!r}: {bad}')
+            if body.expect is not None:
+                cur = d['glyphs'].get(char, {})
+                if (cur.get('keep', []), cur.get('default')) != (body.expect.keep, body.expect.default if body.expect.keep else None):
+                    raise HTTPException(409, f'{char} has changed since; reload to see it')
             # More than the font can cycle; shrinking a set already over (from an old file) is allowed
             before = d['glyphs'].get(char, {}).get('keep', [])
             if len(body.keep) > features.MAX_VARIANTS and len(body.keep) >= len(before):
@@ -192,6 +262,23 @@ def create_app(root: Path, log=print) -> FastAPI:
                 d['glyphs'].pop(char, None)
             p.save_decisions(d)
             return entry(char, d)
+
+    @app.put('/api/candidates/{cid}/corrections')
+    def correct(cid: str, body: CorrectionChange):
+        with st.lock:
+            if cid not in st.cands: raise HTTPException(404, f'no candidate {cid}')
+            p = st.p; d = p.load_decisions(); cur = st.corrections(d, cid)
+            if body.expect is not None and any(abs(cur[k] - v) > 1e-6 for k, v in body.expect.model_dump().items()):
+                raise HTTPException(409, f"{st.cands[cid]['ch']} candidate has changed since; reload to see it")
+            new = body.set.model_dump()
+            for k, v in new.items():
+                lo, hi = LIMITS[k]
+                if not lo <= v <= hi: raise HTTPException(422, f'{k} must be between {lo} and {hi}')
+                if abs(v - build.CORRECTIONS[k]) < 1e-9: d['overrides'][k].pop(cid, None)
+                else: d['overrides'][k][cid] = v
+            p.save_decisions(d)
+            st.refresh()
+            return entry(st.cands[cid]['ch'], p.load_decisions())
 
     @app.get('/api/preview')
     def preview(text: str, calt: bool = True):
