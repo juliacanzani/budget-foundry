@@ -1,6 +1,6 @@
 # Characters this font covers. `drawn` are written on the sheets; `derived` are made
 # from another glyph at build time. Coverage is checked against this list.
-drawn = '''0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:;…!?'"“”-–—_()[]{}<>«»/\|+=×÷%*#@&~'''
+drawn = '''0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:;…!?'"“”-–—_()[]{}<>«»/\|+=×÷%*#@&~$^`'''
 
 # Curly singles from one stroke of each kept double quote: `half` picks the stroke.
 # A decision overrides it (decisions.json: "‘": {"keep": ["<candidate>#<component>", ...]}).

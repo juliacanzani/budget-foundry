@@ -8,6 +8,7 @@ candidate's sheet and bounding box.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 import types
@@ -19,6 +20,7 @@ from . import imaging
 from .build import components_sorted
 from .project import Project, candidate_id, empty_decisions, sha256_file
 
+V0_DRAWN = '''0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:;…!?'"“”-–—_()[]{}<>«»/\\|+=×÷%*#@&~'''
 V0_SHEETS = {  # sheet key -> (file, segmentation settings from seg.py / extract.py)
     'A': ('IMG_3524.heic', dict(min_stroke=0, min_area=400, stroke_floor=0)),
     'B': ('IMG_3521_2.heic', dict(min_stroke=0, min_area=400, stroke_floor=0)),
@@ -90,7 +92,9 @@ def migrate(v0: Path, dest: Path, sources: Path | None = None, log=print) -> Pro
     text = text.replace('reference = "candidates"', 'reference = "kept"      # v0: statistics from the kept glyphs, at build time', 1)
     text += V0_SPECIMEN
     (dest / 'project.toml').write_text(text)
-    shutil.copy2(tpl / 'charset.toml', dest / 'charset.toml')
+    # v0's own coverage, not today's default: characters added to the default since were never drawn
+    charset = (tpl / 'charset.toml').read_text()
+    (dest / 'charset.toml').write_text(re.sub(r"^drawn = '''.*?'''", lambda m: f"drawn = '''{V0_DRAWN}'''", charset, count=1, flags=re.M))
 
     p = Project.open(dest)
     d = empty_decisions()

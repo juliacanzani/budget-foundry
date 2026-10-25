@@ -22,7 +22,7 @@ import numpy as np
 
 from .project import Project, fingerprint
 
-WRITING_ORDER = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;…!?'\"“”‘’-–—_()[]{}<>«»/\\|+=×÷%*#@&~"
+WRITING_ORDER = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;…!?'\"“”‘’-–—_()[]{}<>«»/\\|+=×÷%*#@&~$^`"   # newest last, so earlier sheets keep their rows
 PAPER = {'letter': (215.9, 279.4), 'a4': (210.0, 297.0)}
 DEFAULTS = dict(paper='letter', cap_mm=10.0, xheight=0.66, descender=0.36, pitch=2.2,
                 marker_mm=12.0, margin_mm=8.0, label_mm=20.0)
@@ -48,6 +48,7 @@ NAMES = {
     '\\': ('backslash', None), '|': ('vertical bar', None), '+': ('plus', None), '=': ('equals', None),
     '×': ('times', '3×4'), '÷': ('divide', '8÷2'), '%': ('percent', '50%'), '*': ('asterisk', None),
     '#': ('hash', None), '@': ('at', None), '&': ('ampersand', None), '~': ('tilde', '~5'),
+    '$': ('dollar', '$5'), '^': ('caret', '2^8'), '`': ('backtick', '`code`'),
 }
 WORDS = ['nanbncndnenfngnhninjnknlnmnonpnqnrnsntnunvnwnxnynzn', 'Hamburgevons', 'HAMBURGEFONSTIV',
          'little better coffee the other', 'The quick brown fox jumps over the lazy dog.']
