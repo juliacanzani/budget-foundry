@@ -250,6 +250,7 @@ Not yet in a milestone, or follow-ups from using it. Newest asks first within ea
 - [ ] Extra writing guides (`[template.guides]`): a crossbar line, aperture ellipses for round letters.
 
 **From the first real font (Digital Marker, October 2026).**
+- [ ] **Per-candidate corrections in the cull view: rotate, float (baseline), resize, bolder or thinner.** Stored as overrides on the candidate in `decisions.json`, beside the baseline nudge that already exists, and applied in normalise, which already scales, shifts and dilates or erodes for stroke weight; rotation is new. The flags (slant, bounce, size, weight) say which candidates need it, so a flag can offer its own fix ("slant +11°" → straighten). Belongs with Milestone 4's override table and focus-tray preview. Weight correction only within about a stroke's width before it reads as a different pen.
 - [ ] Words-page harvesting: the page is kept for reference only; spacing and ligature candidates come from it later.
 
 **Upstream (Tangible UI).**
