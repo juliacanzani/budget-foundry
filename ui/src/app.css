@@ -35,20 +35,14 @@ html, body { margin: 0; }
 }
 .app-loading, .app-error { padding: var(--tui-spacing-xl); }
 
-/* stages: the list, in the desktop rail or the phone sheet */
-.stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.stages li {
-  display: grid; grid-template-columns: 1rem 1fr; align-items: start; gap: var(--tui-spacing-sm);
-  padding: var(--tui-spacing-xs) var(--tui-spacing-sm); border-radius: var(--tui-radius-md);
-  color: var(--tui-color-fg-secondary);
-}
-.stages li.is-current { background: var(--tui-color-fill-subtle); color: var(--tui-color-fg); font-weight: 600; }
-.stages__state { display: flex; padding-block-start: 0.15em; }
-/* An empty ring is all "not run" shows, so its track needs 3:1 (TUI's fill is 1.2:1 here).
-   Not on the current row: there the faint track sets off the progress, and the text says it. */
-.stages li:not(.is-current) { --tui-progress-track: var(--bf-ring); }
+/* stages: TUI's StepList (a status list), in the desktop rail or the phone sheet */
+.stages { --tui-steplist-gap: 2px; }
+.stages .tui-steplist__item { color: var(--tui-color-fg-secondary); }
+.stages .tui-steplist__item.is-current { color: var(--tui-color-fg); font-weight: 600; }
 .stages__name { display: grid; line-height: 1.25; }
 .stages__note { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-weight: 400; }
+/* StepList's current row is lilac; muted text is 4.4:1 there */
+.stages .is-current .stages__note { color: var(--tui-color-fg-secondary); }
 
 /* desktop rail: TUI's Sidebar, collapsible. Sticky, so the stages stay in view while culling. */
 .rail {
@@ -59,8 +53,8 @@ html, body { margin: 0; }
 .rail > .stages { padding: var(--tui-sidebar-padding); }
 /* Collapsed: a column of rings. The names are visually hidden, so screen readers keep them. */
 .rail[data-collapsed='true'] > .stages { padding-inline: 0; }
-.rail[data-collapsed='true'] .stages li { grid-template-columns: 1rem; justify-content: center; min-block-size: 1.5rem; }
-.rail[data-collapsed='true'] .stages__name {
+.rail[data-collapsed='true'] .tui-steplist__item { justify-content: center; padding-inline: 0; border-inline-start-width: 0; }
+.rail[data-collapsed='true'] .tui-steplist__content {
   position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 

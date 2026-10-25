@@ -263,7 +263,7 @@ Not yet in a milestone, or follow-ups from using it. Newest asks first within ea
 
 **Upstream (Tangible UI).**
 - [x] Drawer heading back to `Sidebar.Header` (TUI 0.2.32 makes Header and Footer plain `div`s).
-- [ ] Once TUI's StepIndicator branch ships: move the stage list to non-interactive `StepList`, drop the `--bf-ring` override for the track token, and use `attention` for stale stages instead of the ContentIndicator.
+- [x] Stage list on TUI 0.2.33's status-only `StepList`, stale stages as done with `attention`, the `--bf-ring` override dropped.
 
 ## Open questions and assumptions
 

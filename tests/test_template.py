@@ -155,3 +155,13 @@ def test_char_from_file_name():
 def test_long_words_wrap_onto_rows():
     assert template.wrap('The quick brown fox jumps over the lazy dog.', 33) == ['The quick brown fox jumps over', 'the lazy dog.']
     assert template.wrap('nanbncndnenf', 7) == ['nanbnc', 'ndnenf']    # even cuts keep each letter beside an n
+
+
+def test_status_says_when_the_template_is_out_of_date(tmp_path):
+    from budget_foundry import pipeline
+    p = new_project(tmp_path / 'fresh', 'Fresh')
+    assert pipeline.status(p)[0] == ('template', 'not run')
+    template.write_pdf(p, tmp_path / 't.pdf')
+    assert pipeline.status(Project.open(p.root))[0] == ('template', 'done')
+    (p.root / 'charset.toml').write_text((p.root / 'charset.toml').read_text().replace("drawn = '''", "drawn = '''ß"))
+    assert pipeline.status(Project.open(p.root))[0] == ('template', 'stale')     # the charset grew since

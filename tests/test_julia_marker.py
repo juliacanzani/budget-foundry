@@ -72,7 +72,8 @@ def test_checks_pass(project):
 
 
 def test_build_is_fresh_after_build(project):
-    assert all(state == 'done' for _, state in pipeline.status(project))
+    # v0's sheets were never printed from a template, so that stage alone stays not run
+    assert all(state == 'done' for stage, state in pipeline.status(project) if stage != 'template')
 
 
 def test_baseline_nudge_makes_build_stale(project):

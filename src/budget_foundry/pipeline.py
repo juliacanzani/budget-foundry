@@ -1,12 +1,14 @@
 """Stage order and staleness. Running a stage first runs whatever upstream is stale."""
 from __future__ import annotations
 
-from . import build, checks, imaging, segment
+from . import build, checks, imaging, segment, template
 from .project import Project
 
 
 def status(p: Project) -> list[tuple[str, str]]:
-    rows = []
+    revs = [r['rev'] for r in template.revisions(p)]
+    # a template: made for the current charset, made for an older one, or never made
+    rows = [('template', 'not run' if not revs else 'done' if template.layout(p)['rev'] in revs else 'stale')]
     for k in p.sheet_keys:
         d = p.sheet_dir(k)
         rows.append((f'import {k}', _state(p, d, imaging.stage_fp(p, k))))

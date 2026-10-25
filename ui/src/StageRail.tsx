@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ContentIndicator, IconButton, Sidebar, StepIndicator } from '@tangible/ui';
-import { Close, Redo, SidebarExpand } from '@tangible/ui/icons/system/index.js';
+import { IconButton, Sidebar, StepList } from '@tangible/ui';
+import { Close, SidebarExpand } from '@tangible/ui/icons/system/index.js';
 import type { Stage } from './api';
 
 // The spec's ten stages. Only culling has a screen so far; the rest run from the CLI.
 const STAGES: { name: string; key: string | null; cli: string }[] = [
-  { name: 'Template', key: null, cli: 'template' },
+  { name: 'Template', key: 'template', cli: 'template' },
   { name: 'Import', key: 'import', cli: 'add, import' },
   { name: 'Segment and label', key: 'segment', cli: 'segment' },
   { name: 'Normalise', key: 'normalise', cli: 'build' },
@@ -19,6 +19,7 @@ const STAGES: { name: string; key: string | null; cli: string }[] = [
 
 function stateOf(key: string | null, stages: Stage[]): Stage['state'] | null {
   if (key === null || key === 'cull') return null;
+  if (key === 'template') return stages.find((s) => s.name === 'template')?.state ?? 'not run';
   const matching = stages.filter((s) => s.name === key || s.name.startsWith(`${key} `));
   if (!matching.length) return null;
   if (matching.some((s) => s.state === 'not run')) return 'not run';
@@ -26,42 +27,34 @@ function stateOf(key: string | null, stages: Stage[]): Stage['state'] | null {
   return 'done';
 }
 
-const WORDS = { notStarted: 'Not run', complete: 'Done', status: (s: string) => s };
-
-/** The stage's state as a ring. StepIndicator has no "out of date", so stale gets a warning
-    ring, decorative: the line under the name says it in words. */
-function StateIndicator({ state }: { state: Stage['state'] }) {
-  if (state === 'stale') return <ContentIndicator icon={Redo} theme="warning" size="xs" />;
-  return <StepIndicator status={state === 'done' ? 'complete' : 'not-started'} size="xs" labels={WORDS} />;
-}
+const LABELS = { notStarted: 'Not run', complete: 'Done', current: 'current stage' };
 
 type Props = { stages: Stage[]; decided: number; characters: number };
 
+/** A status list, not navigation: StepList without onSelect renders plain rows. A stale
+    stage is done but out of date, so it keeps its tick and gets the attention dot; the
+    line under the name says it in words. */
 function StageList({ stages, decided, characters }: Props) {
   const toChoose = characters - decided;
   return (
-    <ol className="stages">
+    <StepList className="stages" aria-label="Stages" current="Cull and defaults" labels={LABELS}>
       {STAGES.map((s) => {
-        const state = stateOf(s.key, stages);
         const current = s.key === 'cull';
+        const state = current ? null : stateOf(s.key, stages);
         return (
-          <li key={s.name} aria-current={current ? 'step' : undefined} className={current ? 'is-current' : undefined}>
-            <span className="stages__state">
-              {state && <StateIndicator state={state} />}
-              {current && (
-                <StepIndicator value={characters ? (100 * decided) / characters : 0} status={toChoose ? 'in-progress' : 'complete'}
-                  size="xs" label={`${decided} of ${characters} chosen`} />
-              )}
-            </span>
+          <StepList.Item key={s.name} value={s.name}
+            status={current ? (toChoose ? 'in-progress' : 'complete') : state === 'not run' ? 'not-started' : 'complete'}
+            progress={current && characters ? (100 * decided) / characters : undefined}
+            attention={state === 'stale'}>
             <span className="stages__name">
               {s.name}
-              {current && toChoose > 0 && <span className="stages__note">{toChoose} to choose</span>}
+              {current && toChoose > 0 && <span className="stages__note">{decided} of {characters} chosen</span>}
               {!current && s.cli && <span className="stages__note">{state === 'stale' ? 'Out of date · ' : ''}CLI: {s.cli}</span>}
             </span>
-          </li>
+          </StepList.Item>
         );
       })}
-    </ol>
+    </StepList>
   );
 }
 
