@@ -22,6 +22,7 @@ html, body { margin: 0; }
 }
 .app__name { margin: 0; font-weight: 600; margin-inline-end: auto; }
 .app__bar > * + * { margin-inline-start: var(--tui-spacing-md); }
+.app__bar > .stages-menu + * { margin-inline-start: 0; }   /* hidden on desktop; the bar's gap does it on phones */
 .app__product { color: var(--tui-color-fg-muted); font-weight: 400; margin-inline-end: var(--tui-spacing-xs); }
 .app__main { grid-area: main; padding: var(--tui-spacing-lg); display: grid; gap: var(--tui-spacing-lg); align-content: start; }
 .app__preview {
@@ -33,30 +34,42 @@ html, body { margin: 0; }
 }
 .app-loading, .app-error { padding: var(--tui-spacing-xl); }
 
-/* stage rail */
-.rail { grid-area: rail; inline-size: 15rem; box-sizing: border-box; border-inline-end: 1px solid var(--tui-color-border); padding: var(--tui-spacing-sm); }
-.rail__inner { display: grid; gap: var(--tui-spacing-xs); position: sticky; top: var(--tui-spacing-sm); }
-.rail__toggle { justify-self: end; }
-.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-/* Collapsed: a column of rings. The names are visually hidden, so screen readers keep them. */
-.rail.is-collapsed { inline-size: auto; }
-.rail.is-collapsed .rail__toggle { justify-self: center; }
-.rail.is-collapsed li { grid-template-columns: 1rem; justify-content: center; min-block-size: 1.5rem; }
-.rail.is-collapsed .rail__name {
-  position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-}
-.rail li {
+/* stages: the list, in the desktop rail or the phone sheet */
+.stages { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.stages li {
   display: grid; grid-template-columns: 1rem 1fr; align-items: start; gap: var(--tui-spacing-sm);
   padding: var(--tui-spacing-xs) var(--tui-spacing-sm); border-radius: var(--tui-radius-md);
   color: var(--tui-color-fg-secondary);
 }
-.rail li.is-current { background: var(--tui-color-fill-subtle); color: var(--tui-color-fg); font-weight: 600; }
-.rail__state { display: flex; padding-block-start: 0.15em; }
+.stages li.is-current { background: var(--tui-color-fill-subtle); color: var(--tui-color-fg); font-weight: 600; }
+.stages__state { display: flex; padding-block-start: 0.15em; }
 /* An empty ring is all "not run" shows, so its track needs 3:1 (TUI's fill is 1.2:1 here).
    Not on the current row: there the faint track sets off the progress, and the text says it. */
-.rail li:not(.is-current) { --tui-progress-track: var(--bf-ring); }
-.rail__name { display: grid; line-height: 1.25; }
-.rail__cli { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-weight: 400; }
+.stages li:not(.is-current) { --tui-progress-track: var(--bf-ring); }
+.stages__name { display: grid; line-height: 1.25; }
+.stages__note { font-size: 0.75rem; color: var(--tui-color-fg-muted); font-weight: 400; }
+
+/* desktop rail */
+.rail { grid-area: rail; inline-size: 15rem; box-sizing: border-box; border-inline-end: 1px solid var(--tui-color-border); padding: var(--tui-spacing-sm); }
+.rail__inner { display: grid; gap: var(--tui-spacing-xs); position: sticky; top: var(--tui-spacing-sm); }
+.rail__toggle { justify-self: end; }
+/* Collapsed: a column of rings. The names are visually hidden, so screen readers keep them. */
+.rail.is-collapsed { inline-size: auto; }
+.rail.is-collapsed .rail__toggle { justify-self: center; }
+.rail.is-collapsed .stages li { grid-template-columns: 1rem; justify-content: center; min-block-size: 1.5rem; }
+.rail.is-collapsed .stages__name {
+  position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* phone sheet: TUI's Modal, docked to the inline start at full height */
+.stages-menu { display: none; }
+.tui-modal:has(> .stages-sheet) { --tui-modal-spacing: 0; justify-content: flex-start; }
+.stages-sheet.tui-modal__dialog {
+  --tui-modal-max: min(20rem, 85vw); --tui-modal-radius: 0;
+  block-size: 100dvh; max-block-size: none; margin-block: 0;
+  border-start-end-radius: var(--tui-radius-lg); border-end-end-radius: var(--tui-radius-lg);
+}
+.stages-sheet h2 { margin: 0; font-size: 1.25rem; }
 
 /* glyph art */
 .glyph-art { display: block; overflow: visible; }
@@ -149,15 +162,14 @@ html, body { margin: 0; }
 .check__detail { color: var(--tui-color-fg-secondary); font-size: 0.875rem; }
 
 @media (max-width: 52rem) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'rail' 'main' 'preview'; }
-  .rail, .rail.is-collapsed { inline-size: auto; border-inline-end: 0; border-bottom: 1px solid var(--tui-color-border); }
-  .rail__inner { position: static; }
-  .rail__toggle { display: none; }   /* a phone's rail is one scrolling row: nothing to collapse */
-  .rail ol { grid-auto-flow: column; overflow-x: auto; }
-  .rail.is-collapsed li { grid-template-columns: 1rem 1fr; }
-  .rail.is-collapsed .rail__name { position: static; inline-size: auto; block-size: auto; clip-path: none; }
-  .rail__cli { display: none; }
-  .rail__name { white-space: nowrap; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'main' 'preview'; }
+  .rail { display: none; }           /* the header's Stages button opens them in a sheet */
+  .stages-menu { display: inline-flex; }
+  .app__bar { padding-inline: var(--tui-spacing-md); gap: var(--tui-spacing-sm); }
+  .app__bar > * + * { margin-inline-start: 0; }
+  .app__name { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app__product { display: none; }   /* the font's name is the one that matters here */
+  .app__bar .tui-button { white-space: nowrap; }
   .preview { grid-template-columns: minmax(0, 1fr); }
   .cull__char { grid-template-columns: minmax(0, 1fr); }
   .cull__label { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: var(--tui-spacing-sm); }

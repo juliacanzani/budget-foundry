@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ContentIndicator, IconButton, StepIndicator } from '@tangible/ui';
+import { useEffect, useId, useState } from 'react';
+import { ContentIndicator, IconButton, Modal, StepIndicator } from '@tangible/ui';
 import { Redo, SidebarCollapse, SidebarExpand } from '@tangible/ui/icons/system/index.js';
 import type { Stage } from './api';
 
@@ -35,49 +35,84 @@ function StateIndicator({ state }: { state: Stage['state'] }) {
   return <StepIndicator status={state === 'done' ? 'complete' : 'not-started'} size="xs" labels={WORDS} />;
 }
 
+type Props = { stages: Stage[]; decided: number; characters: number };
+
+function StageList({ stages, decided, characters }: Props) {
+  const toChoose = characters - decided;
+  return (
+    <ol className="stages">
+      {STAGES.map((s) => {
+        const state = stateOf(s.key, stages);
+        const current = s.key === 'cull';
+        return (
+          <li key={s.name} aria-current={current ? 'step' : undefined} className={current ? 'is-current' : undefined}>
+            <span className="stages__state">
+              {state && <StateIndicator state={state} />}
+              {current && (
+                <StepIndicator value={characters ? (100 * decided) / characters : 0} status={toChoose ? 'in-progress' : 'complete'}
+                  size="xs" label={`${decided} of ${characters} chosen`} />
+              )}
+            </span>
+            <span className="stages__name">
+              {s.name}
+              {current && toChoose > 0 && <span className="stages__note">{toChoose} to choose</span>}
+              {!current && s.cli && <span className="stages__note">{state === 'stale' ? 'Out of date · ' : ''}CLI: {s.cli}</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 // Collapsed or not, remembered per browser
 const COLLAPSED_KEY = 'budget-foundry:rail-collapsed';
 function readCollapsed() {
   try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
 }
 
-export function StageRail({ stages, decided, characters }: { stages: Stage[]; decided: number; characters: number }) {
-  const toChoose = characters - decided;
+/** The desktop sidebar. Collapsed keeps the rings; the names stay in the accessibility
+    tree, only hidden from view. Phones get StagesMenu instead (app.css swaps them). */
+export function StageRail(props: Props) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const toggle = () => {
     setCollapsed(!collapsed);
     try { if (collapsed) localStorage.removeItem(COLLAPSED_KEY); else localStorage.setItem(COLLAPSED_KEY, '1'); } catch { /* not saved */ }
   };
-  // Collapsed keeps the rings; the names stay in the accessibility tree, only hidden from view
   return (
     <nav className={`rail${collapsed ? ' is-collapsed' : ''}`} aria-label="Stages">
       <div className="rail__inner">
         <IconButton className="rail__toggle" icon={collapsed ? SidebarExpand : SidebarCollapse}
           label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} showTooltip tooltipSide="right"
           variant="ghost" size="sm" onClick={toggle} />
-        <ol>
-          {STAGES.map((s) => {
-            const state = stateOf(s.key, stages);
-            const current = s.key === 'cull';
-            return (
-              <li key={s.name} aria-current={current ? 'step' : undefined} className={current ? 'is-current' : undefined}>
-                <span className="rail__state">
-                  {state && <StateIndicator state={state} />}
-                  {current && (
-                    <StepIndicator value={characters ? (100 * decided) / characters : 0} status={toChoose ? 'in-progress' : 'complete'}
-                      size="xs" label={`${decided} of ${characters} chosen`} />
-                  )}
-                </span>
-                <span className="rail__name">
-                  {s.name}
-                  {current && toChoose > 0 && <span className="rail__cli">{toChoose} to choose</span>}
-                  {!current && s.cli && <span className="rail__cli">{state === 'stale' ? 'Out of date · ' : ''}CLI: {s.cli}</span>}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+        <StageList {...props} />
       </div>
     </nav>
+  );
+}
+
+// Where the rail gives way to the menu; matches the breakpoint in app.css
+const NARROW = '(max-width: 52rem)';
+
+/** Phones: the header button and the stages in a sheet from the inline start. */
+export function StagesMenu(props: Props) {
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+  // Widening the window brings the rail back, so the sheet has nothing left to do
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW);
+    const on = () => { if (!mq.matches) setOpen(false); };
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return (
+    <>
+      <IconButton className="stages-menu" icon={SidebarExpand} label="Stages" showTooltip tooltipSide="bottom"
+        variant="ghost" size="sm" aria-haspopup="dialog" onClick={() => setOpen(true)} />
+      <Modal open={open} onClose={() => setOpen(false)} aria-labelledby={titleId} className="stages-sheet" showCloseButton>
+        <Modal.Head><h2 id={titleId}>Stages</h2></Modal.Head>
+        <Modal.Body><StageList {...props} /></Modal.Body>
+      </Modal>
+    </>
   );
 }

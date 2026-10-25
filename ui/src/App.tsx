@@ -9,7 +9,7 @@ import { CullView } from './CullView';
 import type { Frame } from './GlyphArt';
 import { LookAlikes } from './LookAlikes';
 import { Preview } from './Preview';
-import { StageRail } from './StageRail';
+import { StageRail, StagesMenu } from './StageRail';
 
 export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'light' | 'dark'; onModeChange: (m: Mode) => void }) {
   const qc = useQueryClient();
@@ -65,6 +65,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
   return (
     <div className="app">
       <header className="app__bar">
+        <StagesMenu stages={project.data.stages} decided={project.data.decided} characters={project.data.characters} />
         <p className="app__name"><span className="app__product">Budget Foundry</span> {project.data.name}</p>
         <ThemeButton mode={mode} resolved={resolved} onChange={(m) => {
           onModeChange(m);
