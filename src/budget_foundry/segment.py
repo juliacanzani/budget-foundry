@@ -49,7 +49,8 @@ def stage_fp(p: Project) -> str:
 # ---- grouping
 
 def row_groups(comps, s, bands, xr=FULL):
-    """Components in each band, merged into glyph groups by horizontal overlap (i, j, !, ?, ÷)."""
+    """Components in each band, merged into glyph groups by horizontal overlap (i, j, !, ?, ÷).
+    Pieces stacked clear of each other (a dot over its stem) need less: a dot drifts sideways."""
     cs = [dict(c) for c in comps if c['sw'] >= s['min_stroke'] and c['a'] >= s['min_area']
           and xr[0] <= c['x'] + c['w'] / 2 < xr[1]]
     rows = [[] for _ in bands[:-1]]
@@ -64,7 +65,8 @@ def row_groups(comps, s, bands, xr=FULL):
         for c in r:
             for g in groups[-3:]:
                 x0 = max(g['x'], c['x']); x1 = min(g['x'] + g['w'], c['x'] + c['w'])
-                if x1 - x0 > 0.5 * min(g['w'], c['w']):
+                stacked = c['y'] >= g['y'] + g['h'] or c['y'] + c['h'] <= g['y']
+                if x1 - x0 > (0.25 if stacked else 0.5) * min(g['w'], c['w']):
                     nx = min(g['x'], c['x']); ny = min(g['y'], c['y'])
                     g['w'] = max(g['x'] + g['w'], c['x'] + c['w']) - nx; g['h'] = max(g['y'] + g['h'], c['y'] + c['h']) - ny
                     g['x'], g['y'] = nx, ny; g['ids'].append(c['id'])
