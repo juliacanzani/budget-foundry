@@ -5,7 +5,9 @@ Two steps, so judging happens on what the font will actually get:
 - normalise (stage 4 + 6 + 7 per candidate): every candidate is scaled to its height
   target, weight-compensated, traced, placed on the baseline and spaced, against
   reference statistics taken from all candidates of its class. Cached in normalised/,
-  it is what the cull view draws.
+  it is what the cull view draws. Tracing is the slow part, so each outline is also
+  cached on its own (normalised/trace/, see TraceCache) and only retraced when something
+  that shapes it changes; placing and spacing rerun from the cache in milliseconds.
 - build: the kept candidates are picked out of that cache, slotted (default first),
   given features and compiled; kerning (stage 8) runs on an unkerned compile of the
   same outlines, then the font is compiled again with the kern feature.
@@ -19,6 +21,7 @@ import io
 import json
 import os
 import sys
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -122,6 +125,7 @@ class Builder:
     def __init__(self, p: Project, log=print, work: str = 'kept'):
         self.p, self.log = p, log
         self.s = settings(p)
+        self.code = code_fp(sys.modules[__name__]); self.cache = TraceCache(p.root / 'normalised' / 'trace')
         self.cands, index = segment.load(p)
         self.SW = index['sheet_stroke']
         self.labs = {}
@@ -231,36 +235,61 @@ class Builder:
         m = cv2.GaussianBlur(m, (0, 0), SWk * self.s['trace']['smoothing']) > 0.5
         return m, x0, y0, f
 
+    def trace_key(self, i, comp, imports):
+        """Everything that shapes one traced outline, in sheet pixels."""
+        g = self.cands[i]; n = self.s['normalise']
+        return fingerprint('trace', self.code, imports[g['sheet']], self.SW[g['sheet']], comp,
+                           {k: g[k] for k in ('x', 'y', 'w', 'h', 'ids', 'base', 'wt', 'ch')},
+                           self.FACT.get(i, 1.0) if comp is None else 1.0, g['ch'] in self.DOTS,
+                           n['weight_share'], n['weight_clip'], self.s['trace'])
+
+    def trace_px(self, i, comp):
+        """Trace one candidate. Geometry in sheet pixels, y up from its baseline; font units
+        are a scale away (trace_units), so a new stroke unit never retraces."""
+        t = self.s['trace']; g = self.cands[i]; m, x0, y0, fs = self.mask_of(i, comp)
+        pad = 4
+        plist = potrace.Bitmap(~np.pad(m, pad)).trace(turdsize=int(t['turdsize']), alphamax=t['alphamax'],
+                                                      opticurve=True, opttolerance=t['opttolerance'])
+        ys, xs = np.nonzero(m)
+        def tx(pt, x0=x0, y0=y0, base=g['base']):
+            return (pt.x - pad + x0, base - (pt.y - pad + y0))
+        contours = []
+        for c in plist:
+            segs = []
+            for sg in c.segments:
+                if sg.is_corner: segs.append(('L', tx(sg.c))); segs.append(('L', tx(sg.end_point)))
+                else: segs.append(('C', tx(sg.c1), tx(sg.c2), tx(sg.end_point)))
+            contours.append((tx(c.start_point), segs))
+        nan = float('nan')
+        return dict(fs=fs, contours=contours, xmin=int(xs.min() + x0), xmax=int(xs.max() + x0),
+                    ymax=float(g['base'] - (ys.min() + y0)), ymin=float(g['base'] - (ys.max() + y0)),
+                    rows=(g['base'] - (np.arange(m.shape[0]) + y0)).tolist(),
+                    left=[int(np.nonzero(r)[0].min() + x0) if r.any() else nan for r in m],
+                    right=[int(np.nonzero(r)[0].max() + x0) if r.any() else nan for r in m])
+
+    def trace_units(self, raw, i, ch, ref):
+        kpx = self.U / self.SW[self.cands[i]['sheet']] * raw['fs']
+        P = lambda q: (q[0] * kpx, q[1] * kpx)
+        contours = [(P(st), [(sg[0], *map(P, sg[1:])) for sg in segs]) for st, segs in raw['contours']]
+        return dict(ch=ch, contours=contours, xmin=raw['xmin'] * kpx, xmax=raw['xmax'] * kpx,
+                    ymax=raw['ymax'] * kpx, ymin=raw['ymin'] * kpx, rows=np.array(raw['rows']) * kpx,
+                    left=np.array(raw['left'], float) * kpx, right=np.array(raw['right'], float) * kpx, dy=0.0, src=ref)
+
     def trace(self):
-        t = self.s['trace']
+        """Outlines for the work set, from the trace cache where nothing that shapes them changed."""
         # (glyph char, candidate id, component label or None, source ref)
         sources = [(ch, i, None, i) for ch, ids in self.work_drawn.items() for i in ids]
         for ch, rs in self.work_refs.items():
             for r in rs:
                 i, n = r.split('#'); sources.append((ch, i, self.components_sorted(i)[int(n)], r))
-        self.G = {}
+        imports = {k: imaging.stage_fp(self.p, k) for k in {self.cands[i]['sheet'] for _, i, _, _ in sources}}
+        self.G = {}; self.trace_keys = set(); fresh = 0
         for ch, i, comp, ref in sources:
-            g = self.cands[i]; k = g['sheet']; m, x0, y0, fs = self.mask_of(i, comp)
-            pad = 4
-            plist = potrace.Bitmap(~np.pad(m, pad)).trace(turdsize=int(t['turdsize']), alphamax=t['alphamax'],
-                                                          opticurve=True, opttolerance=t['opttolerance'])
-            kpx = self.U / self.SW[k] * fs
-            ys, xs = np.nonzero(m)
-            def tx(pt, x0=x0, y0=y0, kpx=kpx, base=g['base']):
-                return ((pt.x - pad + x0) * kpx, (base - (pt.y - pad + y0)) * kpx)
-            contours = []
-            for c in plist:
-                segs = []
-                for sg in c.segments:
-                    if sg.is_corner: segs.append(('L', tx(sg.c))); segs.append(('L', tx(sg.end_point)))
-                    else: segs.append(('C', tx(sg.c1), tx(sg.c2), tx(sg.end_point)))
-                contours.append((tx(c.start_point), segs))
-            rows_u = (g['base'] - (np.arange(m.shape[0]) + y0)) * kpx
-            left = np.array([(np.nonzero(r)[0].min() + x0) * kpx if r.any() else np.nan for r in m])
-            right = np.array([(np.nonzero(r)[0].max() + x0) * kpx if r.any() else np.nan for r in m])
-            self.G[ref] = dict(ch=ch, contours=contours, xmin=(xs.min() + x0) * kpx, xmax=(xs.max() + x0) * kpx,
-                               ymax=(g['base'] - (ys.min() + y0)) * kpx, ymin=(g['base'] - (ys.max() + y0)) * kpx,
-                               rows=rows_u, left=left, right=right, dy=0.0, src=ref)
+            key = self.trace_key(i, comp, imports); self.trace_keys.add(key)
+            raw = self.cache.get(key)
+            if raw is None: raw = self.trace_px(i, comp); self.cache.put(key, raw); fresh += 1
+            self.G[ref] = self.trace_units(raw, i, ch, ref)
+        if fresh: self.log(f'  traced {fresh} of {len(sources)}')
 
     def place(self):
         G, CAP, XH, OS = self.G, self.CAP, self.XH, self.OS
@@ -429,6 +458,32 @@ class Builder:
 
 # ---- stages
 
+class TraceCache:
+    """One JSON file per traced outline, named by its key; kept in memory once read."""
+
+    def __init__(self, d: Path):
+        self.d = d; self.mem = {}
+
+    def get(self, key):
+        if key not in self.mem:
+            f = self.d / f'{key}.json'
+            if not f.exists(): return None
+            self.mem[key] = json.loads(f.read_text())
+        return self.mem[key]
+
+    def put(self, key, raw):
+        self.d.mkdir(parents=True, exist_ok=True)
+        (self.d / f'{key}.json').write_text(json.dumps(raw, separators=(',', ':')))
+        self.mem[key] = raw
+
+    def prune(self, keep: set):
+        """Drop outlines no candidate uses any more."""
+        if not self.d.exists(): return 0
+        gone = [f for f in self.d.glob('*.json') if f.stem not in keep]
+        for f in gone: f.unlink(); self.mem.pop(f.stem, None)
+        return len(gone)
+
+
 def normalised_path(p: Project):
     return p.root / 'normalised' / 'glyphs.json'
 
@@ -437,6 +492,7 @@ def run_normalise(p: Project, log=print) -> dict:
     """Normalise every candidate against all candidates of its class (stage 4, 6, 7)."""
     b = Builder(p, log, work='candidates')
     b.normalise(); b.trace(); b.place(); b.space()
+    b.cache.prune(b.trace_keys)
     out = normalised_path(p); out.parent.mkdir(exist_ok=True)
     b.save_normalised(out)
     p.mark_stage(out.parent, normalise_fp(p), glyphs=len(b.G))

@@ -152,6 +152,14 @@ A left rail lists the ten stages with their status; the main area is the current
 
 Everything the UI does maps to a CLI command, so the UI is never the only way to rerun a stage.
 
+### Milestone 4 design (October 2026)
+
+- **Trace cache.** Each candidate's traced outline is cached on disk under `normalised/trace/`, keyed by everything that shapes it: its sheet import, its pixels and components, its scale factor, the weight and trace settings, and its own corrections. Geometry is stored in sheet pixels and converted to font units on load, so a change to the font-wide stroke unit doesn't retrace. Placement and spacing always rerun from the cache, which takes milliseconds for the whole font, so baseline, bounce, placement and spacing settings apply to every glyph live; settings that change tracing retrace the pinned characters while dragging and everything else in the background on release.
+- **Sliders save on release** to `project.toml`, keeping its comments, and each has a reset to its default.
+- **Global undo and redo** (after the LMS course builder's undo manager): a list of records `{label, target, from, to}` with a pointer; a new change drops the redo side. Only finished changes are recorded: a slider records on release, not per drag step, and "keep suggestions for 12" is one record. Undo writes `from` back through the same API that made the change, with `to` as the expected current value; if the file has changed since (the CLI, a hand edit), the server refuses and the undo says why instead of overwriting. Undo and redo buttons in the header, disabled when there is nothing to undo; ⌘Z and ⇧⌘Z outside text fields; each announces "<label> — undone". Blocked while a rebuild runs. History lives in the browser session; candidate IDs are content hashes, so nothing in it needs rewriting.
+- **Inspector on the right** for the focused candidate: its source photo, flags, keep and default, and the corrections (rotate, float, resize, bolder or thinner), with each flag offering its own fix. On phones it becomes a drawer from the right.
+- **Tile focus and keeping are separate.** Clicking or arrowing to a tile focuses it and shows it in the inspector; keeping is its own action: a check button on the tile beside the star for the pointer, Space on the keyboard. S or the star still sets the default.
+
 ## Automated checks
 
 Every build runs these; a failure blocks export but not preview. Each one maps to a bug we only caught by looking at output.
