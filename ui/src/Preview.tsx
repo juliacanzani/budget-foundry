@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Field, TextInput } from '@tangible/ui';
+import { Field, Progress, TextInput } from '@tangible/ui';
 import { api, type Preview as PreviewData } from './api';
 import type { Frame } from './GlyphArt';
+import { usePending } from './pending';
 
 const LINE_HEIGHT = 64;
 
@@ -34,6 +35,8 @@ export function Preview({ frame }: { frame: Frame }) {
   const off = useQuery({ queryKey: ['preview', debounced, false], queryFn: () => api.preview(debounced, false), placeholderData: (d) => d });
   const on = useQuery({ queryKey: ['preview', debounced, true], queryFn: () => api.preview(debounced, true), placeholderData: (d) => d });
   const missing = on.data?.missing ?? [];
+  // A save rebuilds the font server side: the old lines stay, dimmed, until the new ones land
+  const busy = usePending() || off.isFetching || on.isFetching;
 
   return (
     <section className="preview" aria-labelledby="preview-title">
@@ -48,7 +51,8 @@ export function Preview({ frame }: { frame: Frame }) {
         </Field>
       </div>
       {/* Long samples scroll sideways; the region takes focus so the keyboard can scroll it too. */}
-      <div className="preview__lines" role="region" aria-label="Preview lines" tabIndex={0}>
+      <div className="preview__lines" role="region" aria-label="Preview lines" tabIndex={0} aria-busy={busy} data-busy={busy || undefined}>
+        {busy && <Progress className="preview__busy" mode="circle" indeterminate size="sm" aria-label="Updating the preview" />}
         <Line data={off.data} frame={frame} label="One glyph per letter" />
         <Line data={on.data} frame={frame} label="Alternates cycling" />
       </div>

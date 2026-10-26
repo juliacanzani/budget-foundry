@@ -168,7 +168,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
             <IconButton icon={Close} label="Close inspector" showTooltip tooltipSide="left" variant="ghost" size="sm" onClick={closeInspector} />
           </Sidebar.Header>
           <div className="inspector__scroll">
-            <Inspector ref={inspectorHeading} glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
+            <Inspector ref={inspectorHeading} glyphs={glyphs.data} active={active} frame={frame} stroke={project.data.metrics.stroke} maxKeep={project.data.max_keep} announce={setMessage} />
           </div>
         </Sidebar>
       )}
@@ -179,7 +179,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
           <IconButton icon={Close} label="Close" variant="ghost" size="sm" onClick={() => setDrawer(false)} />
         </Sidebar.Header>
         <div className="inspector-drawer__body">
-          <Inspector glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
+          <Inspector glyphs={glyphs.data} active={active} frame={frame} stroke={project.data.metrics.stroke} maxKeep={project.data.max_keep} announce={setMessage} />
         </div>
       </Sidebar>
       <footer className="app__preview" id="preview" hidden={!previewOpen}>

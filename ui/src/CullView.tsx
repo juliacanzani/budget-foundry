@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Chip, IconButton, SegmentedControl, Switch, Tooltip, TooltipProvider } from '@tangible/ui';
 import { Check, StarFill, StarOutline } from '@tangible/ui/icons/system/index.js';
-import { api, type Glyph } from './api';
+import { api, NO_CORRECTIONS, type Corrections, type Glyph } from './api';
 import { startingKeep, useDecisions } from './decisions';
 import { GlyphArt, type Frame } from './GlyphArt';
 
@@ -10,8 +10,8 @@ const kindOf = (ch: string): Exclude<Kind, 'all'> =>
   /\p{L}/u.test(ch) ? 'letters' : /\p{N}/u.test(ch) ? 'figures' : 'punctuation';
 
 const TILE_HEIGHT = 104;
-const hasCorrections = (c: { baseline: number; rotate: number; scale: number; weight: number }) =>
-  c.baseline !== 0 || c.rotate !== 0 || c.scale !== 1 || c.weight !== 0;
+const hasCorrections = (c: Corrections) =>
+  (Object.keys(NO_CORRECTIONS) as (keyof Corrections)[]).some((k) => c[k] !== NO_CORRECTIONS[k]);
 const TILE_MIN_ART = 48;   // the 64px tile minus its xs (8px) side padding
 
 type Props = {

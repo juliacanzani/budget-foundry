@@ -54,8 +54,9 @@ DEFAULTS = dict(
 METRIC_KEYS = ('UPM', 'CAP', 'OS', 'U', 'XH', 'DESC', 'DOT', 'AX')
 # Per-candidate corrections in decisions.json overrides, and the value that means none:
 # baseline in font units (up), rotate in degrees (anticlockwise), scale a factor on the
-# normalised size, weight in stroke widths added to the pen
-CORRECTIONS = dict(baseline=0.0, rotate=0.0, scale=1.0, weight=0.0)
+# normalised size, width a factor across only (squish or stretch), weight in stroke
+# widths added to the pen
+CORRECTIONS = dict(baseline=0.0, rotate=0.0, scale=1.0, width=1.0, weight=0.0)
 
 
 def settings(p: Project) -> dict:
@@ -240,6 +241,10 @@ class Builder:
             m = np.pad(m, q); x0 -= q; y0 -= q
             M = cv2.getRotationMatrix2D(((m.shape[1] - 1) / 2, (m.shape[0] - 1) / 2), rot, 1.0)
             m = cv2.warpAffine(m, M, (m.shape[1], m.shape[0]), flags=cv2.INTER_LINEAR)
+        wid = self.correction(i, 'width') if comp is None else 1.0
+        if wid != 1.0:                             # across only, about the middle
+            w2 = max(1, round(m.shape[1] * wid)); x0 -= (w2 - m.shape[1]) // 2
+            m = cv2.resize(m, (w2, m.shape[0]), interpolation=cv2.INTER_LINEAR)
         n = self.s['normalise']; lo, hi = n['weight_clip']
         wt = 1 + n['weight_share'] * (float(np.clip(g['wt'], lo, hi)) - 1)
         # keep the pen weight through scaling: dilate/erode by stroke × (1/f − wt) / 2,
@@ -260,7 +265,7 @@ class Builder:
                            {k: g[k] for k in ('x', 'y', 'w', 'h', 'ids', 'base', 'wt', 'ch')},
                            self.FACT.get(i, 1.0) if comp is None else 1.0, g['ch'] in self.DOTS,
                            n['weight_share'], n['weight_clip'], self.s['trace'],
-                           None if comp is not None else [self.correction(i, k) for k in ('rotate', 'weight')])
+                           None if comp is not None else [self.correction(i, k) for k in ('rotate', 'width', 'weight')])
 
     def trace_px(self, i, comp):
         """Trace one candidate. Geometry in sheet pixels, y up from its baseline; font units
@@ -317,7 +322,7 @@ class Builder:
         # medians from uncorrected glyphs where there are any, so correcting one never moves its siblings
         ov = self.decisions['overrides']
         def ref(gs):
-            plain = [g for g in gs if not any(g['src'] in ov[k] for k in ('rotate', 'scale', 'weight'))]
+            plain = [g for g in gs if not any(g['src'] in ov[k] for k in ('rotate', 'scale', 'width', 'weight'))]
             return plain or gs
         def place_bottom(ch, t):
             for g in classof(ch): g['dy'] = t - g['ymin']

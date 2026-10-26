@@ -15,8 +15,8 @@ export type Project = {
 
 /** Per-candidate corrections: baseline in font units (up), rotate in degrees
     (anticlockwise), scale a factor, weight in stroke widths added. */
-export type Corrections = { baseline: number; rotate: number; scale: number; weight: number };
-export const NO_CORRECTIONS: Corrections = { baseline: 0, rotate: 0, scale: 1, weight: 0 };
+export type Corrections = { baseline: number; rotate: number; scale: number; width: number; weight: number };
+export const NO_CORRECTIONS: Corrections = { baseline: 0, rotate: 0, scale: 1, width: 1, weight: 0 };
 
 /** A flag's own fix: the correction that brings it to its character's median.
     `evened`: normalising already brings it there, so there's nothing to do. */

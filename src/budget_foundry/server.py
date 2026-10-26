@@ -42,6 +42,7 @@ class Corrections(BaseModel):
     baseline: float = build.CORRECTIONS['baseline']
     rotate: float = build.CORRECTIONS['rotate']
     scale: float = build.CORRECTIONS['scale']
+    width: float = build.CORRECTIONS['width']
     weight: float = build.CORRECTIONS['weight']
 
 
@@ -51,8 +52,8 @@ class CorrectionChange(BaseModel):
 
 
 # Accepted range per correction, and how close counts as the same value
-LIMITS = dict(baseline=(-300, 300), rotate=(-45, 45), scale=(0.5, 2.0), weight=(-1.0, 1.0))
-CLOSE = dict(baseline=2, rotate=0.5, scale=0.01, weight=0.01)
+LIMITS = dict(baseline=(-300, 300), rotate=(-45, 45), scale=(0.5, 2.0), width=(0.5, 2.0), weight=(-1.0, 1.0))
+CLOSE = dict(baseline=2, rotate=0.5, scale=0.01, width=0.01, weight=0.01)
 FIX_LABELS = {'floats': 'Lower to the baseline', 'drops': 'Raise to the baseline', 'small': 'Enlarge to match',
               'large': 'Shrink to match', 'light': 'Thicken to match', 'heavy': 'Thin to match'}
 

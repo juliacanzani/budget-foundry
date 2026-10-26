@@ -23,7 +23,18 @@ from pathlib import Path
 DECISIONS_VERSION = 1
 
 
+_hashes: dict[tuple, str] = {}
+
+
 def sha256_file(path: Path) -> str:
+    """Remembered per file, size and modification time: the server asks after the same
+    sheet photos on every save."""
+    st = Path(path).stat(); key = (str(Path(path).resolve()), st.st_size, st.st_mtime_ns)
+    if key not in _hashes: _hashes[key] = _sha256(path)
+    return _hashes[key]
+
+
+def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, 'rb') as f:
         for chunk in iter(lambda: f.read(1 << 20), b''):
@@ -52,7 +63,7 @@ SOURCES = ('human', 'ai', 'auto')
 
 def empty_decisions() -> dict:
     return dict(version=DECISIONS_VERSION, layout={}, labels={}, glyphs={},
-                overrides=dict(baseline={}, rotate={}, scale={}, weight={}, kern={}, kern_exclude=[]))
+                overrides=dict(baseline={}, rotate={}, scale={}, width={}, weight={}, kern={}, kern_exclude=[]))
 
 
 @dataclass

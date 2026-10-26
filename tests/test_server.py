@@ -110,7 +110,7 @@ def test_corrections_reshape_one_candidate_and_undo_cleanly(client):
     a = next(e for e in c.get('/api/glyphs').json() if e['char'] == 'A')
     cid = a['candidates'][0]['id']; before = a['candidates'][0]
     others = {x['id']: x['path'] for x in a['candidates'][1:]}
-    assert before['corrections'] == {'baseline': 0, 'rotate': 0, 'scale': 1, 'weight': 0}
+    assert before['corrections'] == {'baseline': 0, 'rotate': 0, 'scale': 1, 'width': 1, 'weight': 0}
     r = c.put(f'/api/candidates/{cid}/corrections', json={'set': {'scale': 0.8, 'rotate': 5}})
     assert r.status_code == 200
     after = next(x for x in r.json()['candidates'] if x['id'] == cid)
@@ -125,6 +125,12 @@ def test_corrections_reshape_one_candidate_and_undo_cleanly(client):
     assert c.put(f'/api/candidates/{cid}/corrections', json={'set': {}, 'expect': {}}).status_code == 409
     r = c.put(f'/api/candidates/{cid}/corrections', json={'set': {}, 'expect': after['corrections']})
     assert next(x for x in r.json()['candidates'] if x['id'] == cid)['path'] == before['path']
+    # width stretches across only
+    r = c.put(f'/api/candidates/{cid}/corrections', json={'set': {'width': 1.25}})
+    wide = next(x for x in r.json()['candidates'] if x['id'] == cid)
+    span = lambda x: np.ptp(nums(x['path']).reshape(-1, 2)[:, 0])
+    assert 1.15 < span(wide) / span(before) < 1.35
+    assert abs((wide['ymax'] - wide['ymin']) - (before['ymax'] - before['ymin'])) < 0.05 * (before['ymax'] - before['ymin'])
 
 
 def test_choosing_refuses_a_stale_expectation(client):

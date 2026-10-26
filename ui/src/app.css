@@ -180,9 +180,12 @@ html, body { margin: 0; }
 
 /* preview */
 .preview { display: grid; grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr); gap: var(--tui-spacing-lg); align-items: start; }
-.preview__lines { display: grid; gap: var(--tui-spacing-xs); overflow-x: auto; border-radius: var(--tui-radius-sm); }
+.preview__lines { position: relative; display: grid; gap: var(--tui-spacing-xs); overflow-x: auto; border-radius: var(--tui-radius-sm); }
 .preview__lines:focus-visible { outline: 3px solid var(--tui-color-focus-ring); outline-offset: 2px; }
-.preview__line { margin: 0; }
+.preview__line { margin: 0; transition: opacity var(--tui-motion-duration, 150ms); }
+.preview__lines[data-busy] .preview__line { opacity: 0.45; }
+.preview__busy { position: absolute; inset-block-start: var(--tui-spacing-xs); inset-inline-end: var(--tui-spacing-xs); }
+@media (prefers-reduced-motion: reduce) { .preview__line { transition: none; } }
 .preview__line figcaption { font-size: 0.75rem; color: var(--tui-color-fg-muted); }
 .preview__line svg { display: block; fill: currentColor; }
 .preview__line.is-loading { height: 80px; }

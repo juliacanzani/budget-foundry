@@ -3,7 +3,7 @@ import { Button, Slider } from '@tangible/ui';
 import { StarFill, StarOutline } from '@tangible/ui/icons/system/index.js';
 import { api, NO_CORRECTIONS, type Corrections, type Glyph } from './api';
 import { startingKeep, useDecisions } from './decisions';
-import { GlyphArt, type Frame } from './GlyphArt';
+import { GlyphArt, type Frame, type Live } from './GlyphArt';
 
 const sign = (v: number) => (v > 0 ? '+' : v < 0 ? '−' : '');
 
@@ -13,14 +13,15 @@ const CONTROLS: { key: keyof Corrections; label: string; min: number; max: numbe
   { key: 'rotate', label: 'Rotate', min: -15, max: 15, step: 0.5, text: (v) => `${sign(v)}${Math.abs(v)}°`, ends: ['Lean right', 'Lean left'] },
   { key: 'baseline', label: 'Float', min: -80, max: 80, step: 2, text: (v) => `${sign(v)}${Math.abs(v)} units`, ends: ['Lower', 'Higher'] },
   { key: 'scale', label: 'Size', min: 0.7, max: 1.3, step: 0.01, text: (v) => `${Math.round(v * 100)}%`, ends: ['Smaller', 'Larger'] },
+  { key: 'width', label: 'Width', min: 0.7, max: 1.3, step: 0.01, text: (v) => `${Math.round(v * 100)}%`, ends: ['Squish', 'Stretch'] },
   { key: 'weight', label: 'Weight', min: -0.4, max: 0.4, step: 0.02, text: (v) => `${sign(v)}${Math.abs(v).toFixed(2)} strokes`, ends: ['Thinner', 'Bolder'] },
 ];
 
 /** A Slider that saves on release. TUI's Slider reports every step; its native input's
     `change` event fires on pointer release (and per key press, so those are debounced
-    into one save). */
-function CorrectionSlider({ id, control, value, onCommit }: {
-  id: string; control: (typeof CONTROLS)[number]; value: number; onCommit: (v: number) => void;
+    into one save). Every step goes to onPreview, which draws it at once. */
+function CorrectionSlider({ id, control, value, onPreview, onCommit }: {
+  id: string; control: (typeof CONTROLS)[number]; value: number; onPreview: (v: number) => void; onCommit: (v: number) => void;
 }) {
   const [v, setV] = useState(value);
   const input = useRef<HTMLInputElement>(null);
@@ -29,13 +30,14 @@ function CorrectionSlider({ id, control, value, onCommit }: {
   useEffect(() => { setV(value); saved.current = value; }, [value]);
   useEffect(() => {
     const el = input.current; if (!el) return;
-    let t: ReturnType<typeof setTimeout>;
-    const on = () => {
-      clearTimeout(t);
-      t = setTimeout(() => { const n = el.valueAsNumber; if (n !== saved.current) { saved.current = n; commit.current(n); } }, 350);
-    };
-    el.addEventListener('change', on);
-    return () => { el.removeEventListener('change', on); clearTimeout(t); };
+    let t: ReturnType<typeof setTimeout>, pointer = false;
+    const save = () => { const n = el.valueAsNumber; if (n !== saved.current) { saved.current = n; commit.current(n); } };
+    // A release saves at once; key presses wait for a pause
+    const on = () => { clearTimeout(t); if (pointer) save(); else t = setTimeout(save, 350); pointer = false; };
+    const down = () => { pointer = true; };
+    const key = () => { pointer = false; };
+    el.addEventListener('change', on); el.addEventListener('pointerdown', down); el.addEventListener('keydown', key);
+    return () => { el.removeEventListener('change', on); el.removeEventListener('pointerdown', down); el.removeEventListener('keydown', key); clearTimeout(t); };
   }, []);
   const neutral = NO_CORRECTIONS[control.key];
   return (
@@ -45,24 +47,39 @@ function CorrectionSlider({ id, control, value, onCommit }: {
         <output htmlFor={id} className="correction__value">{control.text(v)}</output>
         {/* Only when there's something to reset: a disabled Reset reads as a live one */}
         {v !== neutral && <Button size="xs" variant="ghost" label="Reset" aria-label={`Reset ${control.label.toLowerCase()}`}
-          onClick={() => { setV(neutral); saved.current = neutral; onCommit(neutral); }} />}
+          onClick={() => { setV(neutral); onPreview(neutral); saved.current = neutral; onCommit(neutral); }} />}
       </div>
-      <Slider ref={input} id={id} aria-labelledby={`${id}-label`} value={v} onValueChange={setV}
+      <Slider ref={input} id={id} aria-labelledby={`${id}-label`} value={v} onValueChange={(n) => { setV(n); onPreview(n); }}
         min={Math.min(control.min, value)} max={Math.max(control.max, value)} step={control.step}
         startLabel={control.ends[0]} endLabel={control.ends[1]} getValueText={control.text} />
     </div>
   );
 }
 
-type Props = { glyphs: Glyph[]; active: string | null; frame: Frame; maxKeep: number; announce: (msg: string) => void };
+type Props = { glyphs: Glyph[]; active: string | null; frame: Frame; stroke: number; maxKeep: number; announce: (msg: string) => void };
+
+/** The difference between what the sliders say and what the outline was built with */
+function liveOf(saved: Corrections, draft: Partial<Corrections>, stroke: number): Live | undefined {
+  const d = { ...saved, ...draft };
+  const live = { rotate: d.rotate - saved.rotate, baseline: d.baseline - saved.baseline,
+    scale: d.scale / saved.scale, width: d.width / saved.width, pen: (d.weight - saved.weight) * stroke };
+  return live.rotate || live.baseline || live.scale !== 1 || live.width !== 1 || live.pen ? live : undefined;
+}
 
 /** The focused candidate, large, with its source, keep and default, its flags' fixes and
     its corrections. The heading takes focus when Enter on a tile sends you here. */
-export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspector({ glyphs, active, frame, maxKeep, announce }, heading) {
+export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspector({ glyphs, active, frame, stroke, maxKeep, announce }, heading) {
   const { toggleKeep, makeDefault, correct } = useDecisions(maxKeep, announce);
+  // Slider values as you drag, drawn at once; the real outline replaces them when it's in.
+  // A new outline (saved, undone, another candidate) starts from what it was built with.
+  const [draft, setDraft] = useState<Partial<Corrections>>({});
   const g = active ? glyphs.find((x) => x.candidates.some((c) => c.id === active)) : undefined;
   const ci = g ? g.candidates.findIndex((c) => c.id === active) : -1;
   const c = g?.candidates[ci];
+  const built = c ? `${c.id} ${JSON.stringify(c.corrections)} ${c.path?.length}` : '';
+  // Reset in render, not an effect, so the new outline never shows with the old draft on it
+  const [draftFor, setDraftFor] = useState(built);
+  if (draftFor !== built) { setDraftFor(built); setDraft({}); }
   if (!g || !c) {
     return <p className="inspector__empty">Focus a candidate to see it here: click it, or arrow to it in the list.</p>;
   }
@@ -71,7 +88,12 @@ export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspecto
   const isDefault = decided && g.default === c.id;
   const cor = c.corrections;
   const name = `${g.char === ' ' ? 'space' : g.char} candidate ${ci + 1}`;
-  const set = (patch: Partial<Corrections>, label: string) => cor && correct(c, { ...cor, ...patch }, label);
+  const set = (patch: Partial<Corrections>, label: string) => {
+    if (!cor) return;
+    setDraft((d) => ({ ...d, ...patch }));
+    correct(c, { ...cor, ...draft, ...patch }, label);
+  };
+  const live = cor ? liveOf(cor, draft, stroke) : undefined;
   return (
     <div className="inspector__body">
       <h3 id="inspector-title" className="inspector__title" tabIndex={-1} ref={heading}>
@@ -82,7 +104,7 @@ export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspecto
         </span>
       </h3>
       <div className="inspector__art">
-        <GlyphArt path={c.path} advance={c.advance} frame={frame} height={168} minWidth={96} />
+        <GlyphArt path={c.path} advance={c.advance} frame={frame} height={168} minWidth={96} live={live} />
         <figure className="inspector__source">
           <img src={api.sourceTile(c.id)} alt="" height={84} />
           <figcaption>As written</figcaption>
@@ -119,6 +141,7 @@ export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspecto
           <h4 id="inspector-corrections">Corrections</h4>
           {CONTROLS.map((k) => (
             <CorrectionSlider key={`${c.id}-${k.key}`} id={`correct-${k.key}`} control={k} value={cor[k.key]}
+              onPreview={(v) => setDraft((d) => ({ ...d, [k.key]: v }))}
               onCommit={(v) => set({ [k.key]: v }, `${k.label} ${name}`)} />
           ))}
         </section>

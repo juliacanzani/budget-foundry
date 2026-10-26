@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { api, NO_CORRECTIONS, type Candidate, type Corrections, type Glyph, type GlyphState } from './api';
 import { record } from './history';
+import { track } from './pending';
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -17,13 +18,15 @@ export const startingKeep = (g: Glyph) => (g.keep.length ? g.keep : g.candidates
  */
 export function useDecisions(maxKeep: number, announce: (msg: string) => void) {
   const qc = useQueryClient();
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ['glyphs'] });
-    qc.invalidateQueries({ queryKey: ['preview'] });
-    qc.invalidateQueries({ queryKey: ['project'] });
-  };
+  const refresh = () => Promise.all([
+    qc.invalidateQueries({ queryKey: ['glyphs'] }),
+    qc.invalidateQueries({ queryKey: ['preview'] }),
+    qc.invalidateQueries({ queryKey: ['project'] }),
+  ]);
 
-  const write = async (char: string, to: GlyphState, expect?: GlyphState) => {
+  // Saved and then shown: pending until the refetched glyphs and preview are in
+  const write = (char: string, to: GlyphState, expect?: GlyphState) => track(save(char, to, expect));
+  const save = async (char: string, to: GlyphState, expect?: GlyphState) => {
     await qc.cancelQueries({ queryKey: ['glyphs'] });
     const before = qc.getQueryData<Glyph[]>(['glyphs']);
     qc.setQueryData<Glyph[]>(['glyphs'], (gs) =>
@@ -35,7 +38,7 @@ export function useDecisions(maxKeep: number, announce: (msg: string) => void) {
       if (before) qc.setQueryData(['glyphs'], before);
       throw err;
     } finally {
-      refresh();
+      await refresh();
     }
   };
 
@@ -97,7 +100,7 @@ export function useDecisions(maxKeep: number, announce: (msg: string) => void) {
 
   const correct = (c: Candidate, next: Corrections, label: string) => {
     const from = c.corrections ?? NO_CORRECTIONS;
-    const run = (to: Corrections, expect?: Corrections) => api.correct(c.id, to, expect).finally(refresh);
+    const run = (to: Corrections, expect?: Corrections) => track(api.correct(c.id, to, expect).finally(refresh));
     return run(next).then(
       () => { record({ label, undo: () => run(from, next), redo: () => run(next, from) }); announce(label); },
       (err) => announce(`Not saved: ${message(err)}`),
