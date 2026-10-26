@@ -11,9 +11,12 @@ html, body { margin: 0; }
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto 1fr auto;
-  grid-template-areas: 'bar bar bar' 'rail main inspector' 'rail preview preview';
-  min-height: 100vh;
+  grid-template-areas: 'bar bar bar' 'rail main inspector' 'rail preview inspector';
+  /* A shell: the page stays put and each column scrolls on its own */
+  block-size: 100dvh;
 }
+/* Inspector closed: main and preview take its column (:where keeps this below the phone layout) */
+.app:where(:not([data-inspector])) { grid-template-areas: 'bar bar bar' 'rail main main' 'rail preview preview'; }
 .app__bar {
   grid-area: bar;
   display: flex; align-items: center; justify-content: space-between; gap: var(--tui-spacing-md);
@@ -25,10 +28,12 @@ html, body { margin: 0; }
 .app__bar > .stages-menu + * { margin-inline-start: 0; }   /* hidden on desktop; the bar's gap does it on phones */
 .app__history { display: flex; gap: var(--tui-spacing-xxs); }
 .app__product { color: var(--tui-color-fg-muted); font-weight: 400; margin-inline-end: var(--tui-spacing-xs); }
-.app__main { grid-area: main; padding: var(--tui-spacing-lg); display: grid; gap: var(--tui-spacing-lg); align-content: start; }
+/* Each scrolling column is positioned, so visually hidden text inside it is clipped
+   with it rather than stretching the page from its static position */
+.app__main, .rail, .inspector__scroll { position: relative; }
+.app__main { grid-area: main; min-block-size: 0; overflow-y: auto; padding: var(--tui-spacing-lg); display: grid; gap: var(--tui-spacing-lg); align-content: start; }
 .app__preview {
   grid-area: preview;
-  position: sticky; bottom: 0;
   background: var(--tui-color-bg-surface);
   border-top: 1px solid var(--tui-color-border);
   padding: var(--tui-spacing-sm) var(--tui-spacing-lg);
@@ -48,7 +53,7 @@ html, body { margin: 0; }
 .rail {
   grid-area: rail; --tui-sidebar-width: 15rem; --tui-sidebar-padding: var(--tui-spacing-sm);
   --tui-sidebar-bg: var(--tui-color-bg);
-  position: sticky; top: 0; align-self: start; block-size: 100dvh; overflow-y: auto;
+  min-block-size: 0; block-size: auto; overflow-y: auto;
 }
 .rail > .stages { padding: var(--tui-sidebar-padding); }
 /* Collapsed: a column of rings. The names are visually hidden, so screen readers keep them. */
@@ -71,11 +76,10 @@ html, body { margin: 0; }
 
 /* inspector: the focused candidate, on the right; a drawer on phones */
 .inspector {
-  grid-area: inspector; inline-size: 20rem; box-sizing: border-box;
-  position: sticky; top: 0; align-self: start; block-size: 100dvh; overflow-y: auto;
-  padding: var(--tui-spacing-lg) var(--tui-spacing-md);
-  border-inline-start: 1px solid var(--tui-color-border); background: var(--tui-color-bg);
+  grid-area: inspector; --tui-sidebar-width: 20rem; --tui-sidebar-bg: var(--tui-color-bg);
+  min-block-size: 0; block-size: auto;
 }
+.inspector__scroll { flex: 1; min-block-size: 0; overflow-y: auto; padding: var(--tui-spacing-md); }
 .inspector-drawer { --tui-sidebar-width: min(22rem, 90vw); }
 .inspector-drawer__body { padding: var(--tui-spacing-md); overflow-y: auto; }
 .inspector__empty { margin: 0; color: var(--tui-color-fg-muted); }
@@ -91,7 +95,7 @@ html, body { margin: 0; }
 .inspector__source figcaption { font-size: 0.75rem; color: var(--tui-color-fg-muted); }
 .inspector__actions { display: flex; flex-wrap: wrap; gap: var(--tui-spacing-sm); }
 .inspector__default[aria-pressed='true'] .tui-icon { color: var(--bf-star); }
-.inspector__section h3 { margin: 0 0 var(--tui-spacing-xs); font-size: 0.875rem; }
+.inspector__section h4 { margin: 0 0 var(--tui-spacing-xs); font-size: 0.875rem; }
 .inspector__flags { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tui-spacing-xs); }
 .inspector__flags li { display: flex; align-items: center; justify-content: space-between; gap: var(--tui-spacing-sm); color: var(--tui-theme-danger-stronger); }
 .inspector__fixed { font-size: 0.8125rem; color: var(--tui-theme-success-stronger); }
@@ -200,7 +204,10 @@ html, body { margin: 0; }
 .check__detail { color: var(--tui-color-fg-secondary); font-size: 0.875rem; }
 
 @media (max-width: 52rem) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'main' 'preview'; }
+  /* Phones scroll the page, with the preview stuck to the bottom */
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'main' 'preview'; block-size: auto; min-block-size: 100dvh; }
+  .app__main { overflow-y: visible; }
+  .app__preview { position: sticky; bottom: 0; }
   .rail { display: none; }           /* the header's Stages button opens them in a sheet */
   .inspector { display: none; }      /* a tile opens it in a drawer */
   .stages-menu { display: inline-flex; }

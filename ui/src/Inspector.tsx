@@ -74,13 +74,13 @@ export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspecto
   const set = (patch: Partial<Corrections>, label: string) => cor && correct(c, { ...cor, ...patch }, label);
   return (
     <div className="inspector__body">
-      <h2 id="inspector-title" className="inspector__title" tabIndex={-1} ref={heading}>
+      <h3 id="inspector-title" className="inspector__title" tabIndex={-1} ref={heading}>
         <span aria-hidden="true">{g.char}</span>
         <span className="inspector__of">
           <span className="tui-visually-hidden">{g.char === ' ' ? 'space' : g.char} ({g.codepoint}), </span>
           candidate {ci + 1} of {g.candidates.length}
         </span>
-      </h2>
+      </h3>
       <div className="inspector__art">
         <GlyphArt path={c.path} advance={c.advance} frame={frame} height={168} minWidth={96} />
         <figure className="inspector__source">
@@ -97,7 +97,7 @@ export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspecto
 
       {c.flags.length > 0 && (
         <section className="inspector__section" aria-labelledby="inspector-flags">
-          <h3 id="inspector-flags">Flags</h3>
+          <h4 id="inspector-flags">Flags</h4>
           <ul className="inspector__flags">
             {c.flags.map((f) => {
               const fix = c.fixes.find((x) => x.flag === f);
@@ -116,7 +116,7 @@ export const Inspector = forwardRef<HTMLHeadingElement, Props>(function Inspecto
 
       {cor && (
         <section className="inspector__section" aria-labelledby="inspector-corrections">
-          <h3 id="inspector-corrections">Corrections</h3>
+          <h4 id="inspector-corrections">Corrections</h4>
           {CONTROLS.map((k) => (
             <CorrectionSlider key={`${c.id}-${k.key}`} id={`correct-${k.key}`} control={k} value={cor[k.key]}
               onCommit={(v) => set({ [k.key]: v }, `${k.label} ${name}`)} />

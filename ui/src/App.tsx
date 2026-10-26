@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, IconButton, Notice, Sidebar } from '@tangible/ui';
-import { Close, Redo, Undo } from '@tangible/ui/icons/system/index.js';
+import { Close, Redo, Undo, View, ViewOff } from '@tangible/ui/icons/system/index.js';
 import { systemTheme, type Mode } from './theme';
 import { ThemeButton, themeLabel } from './ThemeButton';
 import { api, type BuildResult as Result } from './api';
@@ -27,6 +27,12 @@ function useNarrow() {
   return narrow;
 }
 
+// Panels you can put away, remembered per browser
+function usePanel(key: string): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== 'closed'; } catch { return true; } });
+  return [open, (next) => { setOpen(next); try { localStorage.setItem(key, next ? 'open' : 'closed'); } catch { /* private mode */ } }];
+}
+
 // ⌘Z and ⇧⌘Z belong to a text field while you type in one; sliders and buttons pass them on
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || t instanceof HTMLTextAreaElement
@@ -43,6 +49,9 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
   const events = useRef<EventSource | null>(null);
   const [active, setActive] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = usePanel('budget-foundry:inspector');
+  const [previewOpen, setPreviewOpen] = usePanel('budget-foundry:preview');
+  const focusHeading = useRef(false);
   const narrow = useNarrow();
   const inspectorHeading = useRef<HTMLHeadingElement>(null);
   const history = useHistory();
@@ -66,8 +75,20 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
   });
 
   const inspect = (_id: string, how: 'pointer' | 'keyboard') => {
-    if (narrow) setDrawer(true);
-    else if (how === 'keyboard') inspectorHeading.current?.focus();
+    if (narrow) { setDrawer(true); return; }
+    setInspectorOpen(true);
+    if (how === 'keyboard') {
+      if (inspectorHeading.current) inspectorHeading.current.focus(); else focusHeading.current = true;
+    }
+  };
+  // A closed inspector mounts on the next render, so Enter's focus waits for it
+  useEffect(() => {
+    if (focusHeading.current && inspectorHeading.current) { focusHeading.current = false; inspectorHeading.current.focus(); }
+  });
+  const closeInspector = () => {
+    setInspectorOpen(false);
+    // Back to the tile it was showing, rather than dropping focus on the page
+    document.querySelector<HTMLElement>('.tile[data-active] .tile__toggle')?.focus();
   };
 
   // One frame for every tile, so sizes compare honestly across characters.
@@ -112,7 +133,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
   if (!project.data || !glyphs.data || !frame) return <p className="app-loading" role="status">Loading the project…</p>;
 
   return (
-    <div className="app">
+    <div className="app" data-inspector={(inspectorOpen && !narrow) || undefined}>
       <header className="app__bar">
         <StagesMenu stages={project.data.stages} decided={project.data.decided} characters={project.data.characters} />
         <p className="app__name"><span className="app__product">Budget Foundry</span> {project.data.name}</p>
@@ -122,6 +143,9 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
           <IconButton icon={Redo} label={history.canRedo ? `Redo: ${history.redoLabel}` : 'Redo'} showTooltip tooltipSide="bottom"
             variant="ghost" size="sm" disabled={!history.canRedo || building} aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" onClick={() => step('redo')} />
         </span>
+        {/* Named for what it does, as TUI's Sidebar.Toggle is */}
+        <IconButton icon={previewOpen ? ViewOff : View} label={previewOpen ? 'Hide preview' : 'Show preview'} showTooltip tooltipSide="bottom"
+          variant="ghost" size="sm" aria-expanded={previewOpen} aria-controls="preview" onClick={() => setPreviewOpen(!previewOpen)} />
         <ThemeButton mode={mode} resolved={resolved} onChange={(m) => {
           onModeChange(m);
           const r = m === 'system' ? systemTheme() : m;
@@ -136,9 +160,18 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
         <CullView glyphs={glyphs.data} frame={frame} maxKeep={project.data.max_keep} announce={setMessage}
           active={active} onActive={setActive} onInspect={inspect} />
       </main>
-      <aside className="inspector" id="inspector" aria-label="Inspector">
-        <Inspector ref={inspectorHeading} glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
-      </aside>
+      {/* Desktop: a column on the right. Closed, it comes back when you inspect a tile. */}
+      {inspectorOpen && !narrow && (
+        <Sidebar position="right" aria-label="Inspector" className="inspector">
+          <Sidebar.Header className="drawer-head">
+            <h2>Inspector</h2>
+            <IconButton icon={Close} label="Close inspector" showTooltip tooltipSide="left" variant="ghost" size="sm" onClick={closeInspector} />
+          </Sidebar.Header>
+          <div className="inspector__scroll">
+            <Inspector ref={inspectorHeading} glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
+          </div>
+        </Sidebar>
+      )}
       {/* Phones: the inspector as a drawer from the right, opened from a tile */}
       <Sidebar drawer open={drawer} onClose={() => setDrawer(false)} position="right" aria-label="Inspector" className="inspector-drawer">
         <Sidebar.Header className="drawer-head">
@@ -149,7 +182,7 @@ export function App({ mode, resolved, onModeChange }: { mode: Mode; resolved: 'l
           <Inspector glyphs={glyphs.data} active={active} frame={frame} maxKeep={project.data.max_keep} announce={setMessage} />
         </div>
       </Sidebar>
-      <footer className="app__preview">
+      <footer className="app__preview" id="preview" hidden={!previewOpen}>
         <Preview frame={frame} />
       </footer>
       <p className="tui-visually-hidden" role="status" aria-live="polite">{message}</p>

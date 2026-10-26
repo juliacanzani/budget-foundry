@@ -155,7 +155,6 @@ export function CullView({ glyphs, frame, maxKeep, announce, active, onActive: s
                         ref={(el) => { if (el) tiles.current.set(c.id, el); else tiles.current.delete(c.id); }}
                         type="button"
                         className="tile__toggle"
-                        aria-controls="inspector"
                         tabIndex={c.id === tabStop ? 0 : -1}
                         onFocus={() => setActive(c.id)}
                         onClick={() => { focusTile(c.id); onInspect(c.id, 'pointer'); }}
